@@ -57,3 +57,6 @@ export const STATUS_LABELS = {
   paid: 'Payée',
   overdue: 'En retard',
 }
+
+export const QUOTE_STATUS_OPTIONS = ['draft', 'sent', 'accepted', 'refused', 'expired']
+export const INVOICE_STATUS_OPTIONS = ['draft', 'sent', 'partially_paid', 'paid', 'overdue']

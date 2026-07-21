@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { formatEUR, formatDate, INVOICE_TYPE_LABELS } from '../lib/calc'
-import StatusStamp from '../components/StatusStamp'
+import { formatEUR, formatDate, INVOICE_TYPE_LABELS, INVOICE_STATUS_OPTIONS } from '../lib/calc'
+import StatusSelect from '../components/StatusSelect'
 
 export default function Factures() {
   const { business } = useAuth()
@@ -20,6 +20,11 @@ export default function Factures() {
       .eq('business_id', business.id)
       .order('created_at', { ascending: false })
     setInvoices(data || [])
+  }
+
+  async function updateStatus(invoiceId, newStatus) {
+    setInvoices((invs) => invs.map((i) => (i.id === invoiceId ? { ...i, status: newStatus } : i)))
+    await supabase.from('invoices').update({ status: newStatus }).eq('id', invoiceId)
   }
 
   return (
@@ -43,7 +48,7 @@ export default function Factures() {
                   <td>{inv.clients?.name}</td>
                   <td>{formatDate(inv.issue_date)}</td>
                   <td>{formatEUR(inv.total_ttc)}</td>
-                  <td><StatusStamp status={inv.status} /></td>
+                  <td><StatusSelect status={inv.status} options={INVOICE_STATUS_OPTIONS} onChange={(s) => updateStatus(inv.id, s)} /></td>
                 </tr>
               ))}
             </tbody>

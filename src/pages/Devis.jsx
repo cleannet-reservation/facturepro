@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { formatEUR, formatDate } from '../lib/calc'
-import StatusStamp from '../components/StatusStamp'
+import { formatEUR, formatDate, QUOTE_STATUS_OPTIONS } from '../lib/calc'
+import StatusSelect from '../components/StatusSelect'
 
 export default function Devis() {
   const { business } = useAuth()
@@ -20,6 +20,11 @@ export default function Devis() {
       .eq('business_id', business.id)
       .order('created_at', { ascending: false })
     setQuotes(data || [])
+  }
+
+  async function updateStatus(quoteId, newStatus) {
+    setQuotes((qs) => qs.map((q) => (q.id === quoteId ? { ...q, status: newStatus } : q)))
+    await supabase.from('quotes').update({ status: newStatus }).eq('id', quoteId)
   }
 
   return (
@@ -42,7 +47,7 @@ export default function Devis() {
                   <td>{q.clients?.name}</td>
                   <td>{formatDate(q.issue_date)}</td>
                   <td>{formatEUR(q.total_ttc)}</td>
-                  <td><StatusStamp status={q.status} /></td>
+                  <td><StatusSelect status={q.status} options={QUOTE_STATUS_OPTIONS} onChange={(s) => updateStatus(q.id, s)} /></td>
                 </tr>
               ))}
             </tbody>

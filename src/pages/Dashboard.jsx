@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { formatEUR, formatDate } from '../lib/calc'
-import StatusStamp from '../components/StatusStamp'
+import { formatEUR, formatDate, QUOTE_STATUS_OPTIONS, INVOICE_STATUS_OPTIONS } from '../lib/calc'
+import StatusSelect from '../components/StatusSelect'
 
 export default function Dashboard() {
   const { business } = useAuth()
@@ -64,6 +64,16 @@ export default function Dashboard() {
     return months
   }
 
+  async function updateQuoteStatus(quoteId, newStatus) {
+    setRecentQuotes((qs) => qs.map((q) => (q.id === quoteId ? { ...q, status: newStatus } : q)))
+    await supabase.from('quotes').update({ status: newStatus }).eq('id', quoteId)
+  }
+
+  async function updateInvoiceStatus(invoiceId, newStatus) {
+    setRecentInvoices((invs) => invs.map((i) => (i.id === invoiceId ? { ...i, status: newStatus } : i)))
+    await supabase.from('invoices').update({ status: newStatus }).eq('id', invoiceId)
+  }
+
   return (
     <div>
       <header className="page-header">
@@ -120,7 +130,7 @@ export default function Dashboard() {
                   <td><Link to={`/devis/${q.id}`}>{q.number}</Link></td>
                   <td>{formatDate(q.issue_date)}</td>
                   <td>{formatEUR(q.total_ttc)}</td>
-                  <td><StatusStamp status={q.status} /></td>
+                  <td><StatusSelect status={q.status} options={QUOTE_STATUS_OPTIONS} onChange={(s) => updateQuoteStatus(q.id, s)} /></td>
                 </tr>
               ))}
             </tbody>
@@ -146,7 +156,7 @@ export default function Dashboard() {
                     <td>{inv.clients?.name}</td>
                     <td>{formatEUR(inv.total_ttc)}</td>
                     <td>{inv.status === 'paid' ? '—' : formatEUR(remaining)}</td>
-                    <td><StatusStamp status={inv.status} /></td>
+                    <td><StatusSelect status={inv.status} options={INVOICE_STATUS_OPTIONS} onChange={(s) => updateInvoiceStatus(inv.id, s)} /></td>
                   </tr>
                 )
               })}

@@ -239,3 +239,12 @@ export async function downloadDocumentPDF(doc_) {
   const safeType = doc_.type.replace(/[^a-zA-Z0-9]+/g, '-')
   pdf.save(`${safeType}-${doc_.number}.pdf`)
 }
+
+// Renvoie { base64, filename } — utile pour joindre le PDF à un email (Brevo)
+export async function getDocumentPDFBase64(doc_) {
+  const pdf = await generateDocumentPDF(doc_)
+  const safeType = doc_.type.replace(/[^a-zA-Z0-9]+/g, '-')
+  const dataUri = pdf.output('datauristring') // "data:application/pdf;filename=...;base64,XXXX"
+  const base64 = dataUri.split(',')[1]
+  return { base64, filename: `${safeType}-${doc_.number}.pdf` }
+}

@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { formatEUR, formatDate, computeCreditImpot, INVOICE_TYPE_LABELS } from '../lib/calc'
-import { downloadDocumentPDF } from '../lib/pdfGenerator'
+import { downloadDocumentPDF, getDocumentPDFBase64 } from '../lib/pdfGenerator'
 import StatusStamp from '../components/StatusStamp'
 
 export default function FactureDetail() {
@@ -16,6 +16,8 @@ export default function FactureDetail() {
   const [deductedInvoice, setDeductedInvoice] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailStatus, setEmailStatus] = useState('')
 
   useEffect(() => {
     load()
@@ -45,14 +47,14 @@ export default function FactureDetail() {
     }
   }
 
-  async function handleDownloadPDF() {
+  function buildPdfDoc() {
     const pdfTypeLabel = {
       acompte: "FACTURE D'ACOMPTE",
       solde: 'FACTURE DE SOLDE',
       standalone: 'FACTURE',
     }[invoice.invoice_type] || 'FACTURE'
 
-    await downloadDocumentPDF({
+    return {
       type: pdfTypeLabel,
       number: invoice.number,
       issue_date: invoice.issue_date,
@@ -67,20 +69,85 @@ export default function FactureDetail() {
       deducted_invoice: deductedInvoice,
       tax_credit_eligible: invoice.tax_credit_eligible,
       notes: invoice.notes,
-    })
+    }
   }
 
-  async function generatePaymentLink() {
+  async function handleDownloadPDF() {
+    await downloadDocumentPDF(buildPdfDoc())
+  }
+
+  async function handleSendEmail() {
+    if (!client.email) {
+      setEmailStatus("Ce client n'a pas d'adresse email enregistrée.")
+      return
+    }
+    setSendingEmail(true)
+    setEmailStatus('')
+    try {
+      const docData = buildPdfDoc()
+      const { base64, filename } = await getDocumentPDFBase64(docData)
+
+      const docLabel = INVOICE_TYPE_LABELS[invoice.invoice_type] || 'Facture'
+      const paymentLine = invoice.stripe_payment_link_url
+        ? `<p><a href="${invoice.stripe_payment_link_url}" style="display:inline-block; background:#2F6F5E; color:#fff; padding:10px 18px; border-radius:6px; text-decoration:none;">Payer en ligne</a></p>`
+        : ''
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; color: #1B2A4A; max-width: 560px;">
+          <h2 style="color: #21503F;">${docLabel} ${invoice.number} — ${business.name}</h2>
+          <p>Bonjour ${client.name},</p>
+          <p>Veuillez trouver ci-joint votre ${docLabel.toLowerCase()} d'un montant de <strong>${formatEUR(invoice.total_ttc)}</strong>
+          ${invoice.due_date ? `, à régler avant le ${formatDate(invoice.due_date)}` : ''}.</p>
+          ${paymentLine}
+          <p>Cordialement,<br/>${business.name}</p>
+        </div>
+      `
+
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: client.email,
+          toName: client.name,
+          subject: `${docLabel} ${invoice.number} — ${business.name}`,
+          htmlContent: html,
+          senderName: business.name,
+          senderEmail: business.email,
+          attachment: { name: filename, content: base64 },
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Erreur lors de l'envoi")
+
+      if (invoice.status === 'draft') {
+        await supabase.from('invoices').update({ status: 'sent' }).eq('id', id)
+        setInvoice((inv) => ({ ...inv, status: 'sent' }))
+      }
+      setEmailStatus('Email envoyé avec succès.')
+    } catch (err) {
+      setEmailStatus(`Erreur : ${err.message}`)
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
+  async function generatePaymentLink(amount) {
     setError('')
+    if (!amount || amount <= 0) {
+      setError('Montant invalide.')
+      return
+    }
     setBusy(true)
     try {
+      const isFullPayment = amount >= invoice.total_ttc - (invoice.deposit_paid || 0) - 0.01
       const res = await fetch('/api/create-payment-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Number(depositAmount),
-          description: `Acompte — Facture ${invoice.number}`,
+          amount,
+          description: `${isFullPayment ? 'Paiement' : 'Acompte'} — Facture ${invoice.number}`,
           invoiceNumber: invoice.number,
+          invoiceId: invoice.id,
         }),
       })
       const data = await res.json()
@@ -88,10 +155,10 @@ export default function FactureDetail() {
 
       await supabase
         .from('invoices')
-        .update({ deposit_requested: Number(depositAmount), stripe_payment_link_url: data.url })
+        .update({ deposit_requested: amount, stripe_payment_link_url: data.url })
         .eq('id', id)
 
-      setInvoice((inv) => ({ ...inv, deposit_requested: Number(depositAmount), stripe_payment_link_url: data.url }))
+      setInvoice((inv) => ({ ...inv, deposit_requested: amount, stripe_payment_link_url: data.url }))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -177,45 +244,90 @@ export default function FactureDetail() {
       </section>
 
       <section className="panel">
-        <h2 className="section-title">Acompte en ligne</h2>
+        <h2 className="section-title">Paiement de la facture en ligne</h2>
         {invoice.status === 'paid' ? (
           <p className="empty-state">Facture entièrement réglée.</p>
         ) : (
           <>
-            <div className="form-grid">
-              <label>
-                Montant de l'acompte (€)
-                <input type="number" min="0" step="0.01" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
-              </label>
-              <div className="deposit-actions">
-                <button className="btn-secondary" disabled={busy} onClick={generatePaymentLink}>
-                  {invoice.stripe_payment_link_url ? 'Régénérer le lien' : 'Générer le lien de paiement'}
-                </button>
-              </div>
-            </div>
+            <p className="muted" style={{ marginBottom: 12 }}>
+              Génère un lien pour que le client règle la totalité restante ({formatEUR(invoice.total_ttc - (invoice.deposit_paid || 0))}) en une fois.
+            </p>
+            <button
+              className="btn-primary"
+              disabled={busy}
+              onClick={() => generatePaymentLink(invoice.total_ttc - (invoice.deposit_paid || 0))}
+            >
+              Générer le lien de paiement complet
+            </button>
 
-            {invoice.stripe_payment_link_url && (
-              <div className="payment-link-box">
-                <input readOnly value={invoice.stripe_payment_link_url} />
-                <button className="btn-secondary" onClick={copyLink}>Copier</button>
-              </div>
-            )}
-
-            {error && <div className="form-error">{error}</div>}
-
-            <div className="action-row">
-              {invoice.deposit_requested > 0 && invoice.deposit_paid === 0 && (
-                <button className="btn-secondary" disabled={busy} onClick={markDepositPaid}>Marquer l'acompte comme reçu</button>
-              )}
-              <button className="btn-primary" disabled={busy} onClick={markFullyPaid}>Marquer la facture comme soldée</button>
-            </div>
+            {error && <div className="form-error" style={{ marginTop: 12 }}>{error}</div>}
           </>
         )}
       </section>
 
+      {invoice.status !== 'paid' && (
+        <section className="panel">
+          <h2 className="section-title">Demander un acompte</h2>
+          <p className="muted" style={{ marginBottom: 12 }}>
+            Génère un lien pour que le client règle uniquement un acompte, le reste étant à facturer plus tard.
+          </p>
+          <div className="action-row">
+            <button className="btn-secondary" disabled={busy} onClick={() => generatePaymentLink(Math.round(invoice.total_ttc * 0.3 * 100) / 100)}>
+              Acompte 30% ({formatEUR(invoice.total_ttc * 0.3)})
+            </button>
+            <button className="btn-secondary" disabled={busy} onClick={() => generatePaymentLink(Math.round(invoice.total_ttc * 0.5 * 100) / 100)}>
+              Acompte 50% ({formatEUR(invoice.total_ttc * 0.5)})
+            </button>
+          </div>
+
+          <div className="form-grid" style={{ marginTop: 16 }}>
+            <label>
+              Ou un montant personnalisé (€)
+              <input type="number" min="0" step="0.01" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+            </label>
+            <div className="deposit-actions">
+              <button className="btn-secondary" disabled={busy} onClick={() => generatePaymentLink(Number(depositAmount))}>
+                Générer ce montant
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {invoice.stripe_payment_link_url && (
+        <section className="panel">
+          <h2 className="section-title">Lien actif à envoyer au client</h2>
+          <div className="payment-link-box">
+            <input readOnly value={invoice.stripe_payment_link_url} />
+            <button className="btn-secondary" onClick={copyLink}>Copier</button>
+          </div>
+          <p className="muted">
+            Montant demandé : {formatEUR(invoice.deposit_requested)}. Générer un nouveau lien (ci-dessus) remplace celui-ci.
+          </p>
+
+          {invoice.status !== 'paid' && (
+            <div className="action-row">
+              {invoice.deposit_requested > 0 && invoice.deposit_paid === 0 && (
+                <button className="btn-secondary" disabled={busy} onClick={markDepositPaid}>Marquer ce montant comme reçu</button>
+              )}
+              <button className="btn-primary" disabled={busy} onClick={markFullyPaid}>Marquer la facture comme soldée</button>
+            </div>
+          )}
+        </section>
+      )}
+
       <section className="panel action-row">
         <button className="btn-secondary" onClick={handleDownloadPDF}>Télécharger le PDF</button>
+        <button className="btn-secondary" disabled={sendingEmail} onClick={handleSendEmail}>
+          {sendingEmail ? 'Envoi…' : 'Envoyer par email'}
+        </button>
       </section>
+
+      {emailStatus && (
+        <section className="panel">
+          <p className={emailStatus.startsWith('Erreur') ? 'form-error' : 'form-info'} style={{ margin: 0 }}>{emailStatus}</p>
+        </section>
+      )}
     </div>
   )
 }

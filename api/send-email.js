@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Méthode non autorisée' })
   }
 
-  const { to, toName, subject, htmlContent, senderName, senderEmail } = req.body
+  const { to, toName, subject, htmlContent, senderName, senderEmail, attachment } = req.body
 
   if (!to || !subject || !htmlContent) {
     return res.status(400).json({ error: 'Champs manquants (to, subject, htmlContent)' })
@@ -19,18 +19,25 @@ export default async function handler(req, res) {
   }
 
   try {
+    const payload = {
+      sender: { name: senderName || 'FacturePro', email: senderEmail || 'no-reply@facturepro.app' },
+      to: [{ email: to, name: toName || undefined }],
+      subject,
+      htmlContent,
+    }
+
+    // Pièce jointe PDF optionnelle : { name: 'facture.pdf', content: '<base64 sans préfixe>' }
+    if (attachment && attachment.content && attachment.name) {
+      payload.attachment = [{ name: attachment.name, content: attachment.content }]
+    }
+
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'api-key': process.env.BREVO_API_KEY,
       },
-      body: JSON.stringify({
-        sender: { name: senderName || 'FacturePro', email: senderEmail || 'no-reply@facturepro.app' },
-        to: [{ email: to, name: toName || undefined }],
-        subject,
-        htmlContent,
-      }),
+      body: JSON.stringify(payload),
     })
 
     const data = await response.json()

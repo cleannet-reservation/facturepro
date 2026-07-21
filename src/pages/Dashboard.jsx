@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
-import { formatEUR } from '../lib/calc'
+import { formatEUR, formatDate } from '../lib/calc'
+import StatusStamp from '../components/StatusStamp'
 
 export default function Dashboard() {
   const { business } = useAuth()
   const [stats, setStats] = useState({ quotesCount: 0, invoicesCount: 0, unpaidTotal: 0, acceptedQuotes: 0 })
   const [recentQuotes, setRecentQuotes] = useState([])
+  const [recentInvoices, setRecentInvoices] = useState([])
   const [chartData, setChartData] = useState([])
 
   useEffect(() => {
@@ -24,8 +26,9 @@ export default function Dashboard() {
 
     const { data: invoices } = await supabase
       .from('invoices')
-      .select('*')
+      .select('*, clients(name)')
       .eq('business_id', business.id)
+      .order('created_at', { ascending: false })
 
     const unpaidTotal = (invoices || [])
       .filter((i) => i.status !== 'paid')
@@ -38,6 +41,7 @@ export default function Dashboard() {
       acceptedQuotes: (quotes || []).filter((q) => q.status === 'accepted').length,
     })
     setRecentQuotes((quotes || []).slice(0, 5))
+    setRecentInvoices((invoices || []).slice(0, 5))
     setChartData(buildMonthlyRevenue(invoices || []))
   }
 
@@ -114,11 +118,38 @@ export default function Dashboard() {
               {recentQuotes.map((q) => (
                 <tr key={q.id}>
                   <td><Link to={`/devis/${q.id}`}>{q.number}</Link></td>
-                  <td>{q.issue_date}</td>
+                  <td>{formatDate(q.issue_date)}</td>
                   <td>{formatEUR(q.total_ttc)}</td>
-                  <td>{q.status}</td>
+                  <td><StatusStamp status={q.status} /></td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="panel">
+        <h2>Dernières factures</h2>
+        {recentInvoices.length === 0 ? (
+          <p className="empty-state">Aucune facture pour l'instant.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr><th>N°</th><th>Client</th><th>Total TTC</th><th>Reste à payer</th><th>Statut</th></tr>
+            </thead>
+            <tbody>
+              {recentInvoices.map((inv) => {
+                const remaining = Number(inv.total_ttc) - Number(inv.deposit_paid || 0)
+                return (
+                  <tr key={inv.id}>
+                    <td><Link to={`/factures/${inv.id}`}>{inv.number}</Link></td>
+                    <td>{inv.clients?.name}</td>
+                    <td>{formatEUR(inv.total_ttc)}</td>
+                    <td>{inv.status === 'paid' ? '—' : formatEUR(remaining)}</td>
+                    <td><StatusStamp status={inv.status} /></td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}

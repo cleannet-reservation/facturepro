@@ -12,6 +12,7 @@ export default function Settings() {
   const [saved, setSaved] = useState(false)
   const [stripeStatus, setStripeStatus] = useState(null)
   const [stripeLoading, setStripeLoading] = useState(false)
+  const [stripeError, setStripeError] = useState('')
 
   useEffect(() => {
     if (business) checkStripeStatus()
@@ -29,6 +30,7 @@ export default function Settings() {
 
   async function handleConnectStripe() {
     setStripeLoading(true)
+    setStripeError('')
     try {
       const res = await fetch('/api/stripe-connect-onboard', {
         method: 'POST',
@@ -36,10 +38,12 @@ export default function Settings() {
         body: JSON.stringify({ businessId: business.id, returnOrigin: window.location.origin }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      if (!res.ok) throw new Error(data.error || `Erreur serveur (code ${res.status})`)
+      if (!data.url) throw new Error("Réponse inattendue du serveur : pas de lien reçu")
       window.location.href = data.url
     } catch (err) {
-      setError(err.message)
+      console.error('Erreur Stripe Connect :', err)
+      setStripeError(err.message)
       setStripeLoading(false)
     }
   }
@@ -129,6 +133,7 @@ export default function Settings() {
         <button className="btn-secondary" style={{ marginTop: 12 }} disabled={stripeLoading} onClick={handleConnectStripe}>
           {stripeLoading ? 'Redirection…' : stripeStatus?.connected ? 'Gérer / compléter mon compte Stripe' : 'Connecter mon compte Stripe'}
         </button>
+        {stripeError && <div className="form-error" style={{ marginTop: 12 }}>{stripeError}</div>}
       </section>
 
       <form onSubmit={handleSubmit} className="panel form-grid">

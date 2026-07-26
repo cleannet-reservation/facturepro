@@ -60,3 +60,12 @@ export const STATUS_LABELS = {
 
 export const QUOTE_STATUS_OPTIONS = ['draft', 'sent', 'accepted', 'refused', 'expired']
 export const INVOICE_STATUS_OPTIONS = ['draft', 'sent', 'partially_paid', 'paid', 'overdue']
+
+// Une facture est "en retard" si sa date d'échéance est dépassée et qu'elle
+// n'est ni payée ni encore au stade brouillon.
+export function isOverdue(invoice) {
+  if (!invoice.due_date) return false
+  if (['paid', 'draft', 'overdue'].includes(invoice.status)) return false
+  const today = new Date().toISOString().slice(0, 10)
+  return invoice.due_date < today
+}

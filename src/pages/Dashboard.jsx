@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { formatEUR, formatDate, QUOTE_STATUS_OPTIONS, INVOICE_STATUS_OPTIONS } from '../lib/calc'
+import { flagOverdueInvoices } from '../lib/invoiceHelpers'
 import StatusSelect from '../components/StatusSelect'
 
 export default function Dashboard() {
@@ -24,11 +25,12 @@ export default function Dashboard() {
       .eq('business_id', business.id)
       .order('created_at', { ascending: false })
 
-    const { data: invoices } = await supabase
+    const { data: rawInvoices } = await supabase
       .from('invoices')
       .select('*, clients(name)')
       .eq('business_id', business.id)
       .order('created_at', { ascending: false })
+    const invoices = await flagOverdueInvoices(rawInvoices || [])
 
     const unpaidTotal = (invoices || [])
       .filter((i) => i.status !== 'paid')

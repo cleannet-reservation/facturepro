@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
@@ -10,6 +10,39 @@ export default function Settings() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+  const [stripeStatus, setStripeStatus] = useState(null)
+  const [stripeLoading, setStripeLoading] = useState(false)
+
+  useEffect(() => {
+    if (business) checkStripeStatus()
+  }, [business])
+
+  async function checkStripeStatus() {
+    try {
+      const res = await fetch(`/api/stripe-connect-status?businessId=${business.id}`)
+      const data = await res.json()
+      setStripeStatus(data)
+    } catch {
+      setStripeStatus(null)
+    }
+  }
+
+  async function handleConnectStripe() {
+    setStripeLoading(true)
+    try {
+      const res = await fetch('/api/stripe-connect-onboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: business.id, returnOrigin: window.location.origin }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      window.location.href = data.url
+    } catch (err) {
+      setError(err.message)
+      setStripeLoading(false)
+    }
+  }
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }))
@@ -77,6 +110,26 @@ export default function Settings() {
       <header className="page-header">
         <h1>Paramètres de l'entreprise</h1>
       </header>
+
+      <section className="panel">
+        <h2 className="section-title" style={{ marginTop: 0 }}>Paiements en ligne (Stripe)</h2>
+        {stripeStatus?.connected && stripeStatus?.chargesEnabled ? (
+          <div className="form-info">
+            Compte Stripe connecté et actif — les paiements de tes clients arrivent directement sur ton compte.
+          </div>
+        ) : stripeStatus?.connected ? (
+          <div className="form-error">
+            Compte Stripe en cours de vérification — Stripe demande encore quelques informations avant de pouvoir accepter des paiements.
+          </div>
+        ) : (
+          <p className="muted" style={{ marginBottom: 12 }}>
+            Connecte ton compte Stripe pour recevoir directement l'argent de tes clients quand ils paient une facture en ligne.
+          </p>
+        )}
+        <button className="btn-secondary" style={{ marginTop: 12 }} disabled={stripeLoading} onClick={handleConnectStripe}>
+          {stripeLoading ? 'Redirection…' : stripeStatus?.connected ? 'Gérer / compléter mon compte Stripe' : 'Connecter mon compte Stripe'}
+        </button>
+      </section>
 
       <form onSubmit={handleSubmit} className="panel form-grid">
         <div className="span-2" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

@@ -5,7 +5,9 @@
 //
 // Variables d'environnement requises sur Vercel :
 //   STRIPE_SECRET_KEY       (déjà utilisée pour créer les liens de paiement)
-//   STRIPE_WEBHOOK_SECRET   (fournie par Stripe à la création du webhook, voir README)
+//   STRIPE_WEBHOOK_SECRET   (webhook sur "Votre compte")
+//   STRIPE_CONNECT_WEBHOOK_SECRET (optionnelle : webhook sur "Comptes connectés",
+//                            nécessaire seulement si tu utilises Stripe Connect)
 //   SUPABASE_SERVICE_ROLE_KEY (clé secrète Supabase, jamais exposée au frontend)
 //
 // IMPORTANT : cette fonction a besoin du corps brut (non parsé) de la requête
@@ -39,9 +41,19 @@ export default async function handler(req, res) {
   let event
   try {
     event = stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET)
-  } catch (err) {
-    console.error('Signature Stripe invalide :', err.message)
-    return res.status(400).json({ error: `Webhook signature invalide : ${err.message}` })
+  } catch (platformErr) {
+    // Peut être un événement d'un compte Stripe Connect (autre secret de signature)
+    if (process.env.STRIPE_CONNECT_WEBHOOK_SECRET) {
+      try {
+        event = stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_CONNECT_WEBHOOK_SECRET)
+      } catch (connectErr) {
+        console.error('Signature Stripe invalide :', connectErr.message)
+        return res.status(400).json({ error: `Webhook signature invalide : ${connectErr.message}` })
+      }
+    } else {
+      console.error('Signature Stripe invalide :', platformErr.message)
+      return res.status(400).json({ error: `Webhook signature invalide : ${platformErr.message}` })
+    }
   }
 
   const supabaseAdmin = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)

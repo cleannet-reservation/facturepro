@@ -98,6 +98,49 @@ export default function DevisDetail() {
     }
   }
 
+  async function handleDuplicate() {
+    setBusy(true)
+    try {
+      const number = `D-${String(business.quote_next_number).padStart(4, '0')}`
+      const validityDate = new Date()
+      validityDate.setDate(validityDate.getDate() + 30)
+
+      const { data: newQuote, error: quoteError } = await supabase
+        .from('quotes')
+        .insert({
+          business_id: business.id,
+          client_id: client.id,
+          number,
+          validity_date: validityDate.toISOString().slice(0, 10),
+          notes: quote.notes,
+          tax_credit_eligible: quote.tax_credit_eligible,
+          subtotal_ht: quote.subtotal_ht,
+          tva_amount: quote.tva_amount,
+          total_ttc: quote.total_ttc,
+        })
+        .select()
+        .single()
+      if (quoteError) throw quoteError
+
+      const itemsPayload = items.map((it, i) => ({
+        quote_id: newQuote.id,
+        description: it.description,
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+        tva_rate: it.tva_rate,
+        position: i,
+      }))
+      await supabase.from('quote_items').insert(itemsPayload)
+      await supabase.from('businesses').update({ quote_next_number: business.quote_next_number + 1 }).eq('id', business.id)
+
+      navigate(`/devis/${newQuote.id}`)
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function handleDownloadPDF() {
     await downloadDocumentPDF({
       type: 'DEVIS',
@@ -247,6 +290,7 @@ export default function DevisDetail() {
 
       <section className="panel action-row">
         <button className="btn-secondary" onClick={handleDownloadPDF}>Télécharger le PDF</button>
+        <button className="btn-secondary" disabled={busy} onClick={handleDuplicate}>Dupliquer</button>
         <button className="btn-secondary" disabled={sendingEmail} onClick={handleSendEmail}>
           {sendingEmail ? 'Envoi…' : 'Envoyer par email'}
         </button>

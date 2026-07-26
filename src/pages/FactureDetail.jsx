@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { formatEUR, formatDate, computeCreditImpot, INVOICE_TYPE_LABELS } from '../lib/calc'
@@ -8,6 +8,7 @@ import StatusStamp from '../components/StatusStamp'
 
 export default function FactureDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { business } = useAuth()
   const [invoice, setInvoice] = useState(null)
   const [client, setClient] = useState(null)
@@ -47,6 +48,50 @@ export default function FactureDetail() {
     }
   }
 
+  async function handleDuplicate() {
+    setBusy(true)
+    try {
+      const number = `F-${String(business.invoice_next_number).padStart(4, '0')}`
+      const dueDate = new Date()
+      dueDate.setDate(dueDate.getDate() + 30)
+
+      const { data: newInvoice, error: invError } = await supabase
+        .from('invoices')
+        .insert({
+          business_id: business.id,
+          client_id: client.id,
+          number,
+          invoice_type: 'standalone',
+          due_date: dueDate.toISOString().slice(0, 10),
+          notes: invoice.notes,
+          tax_credit_eligible: invoice.tax_credit_eligible,
+          subtotal_ht: invoice.subtotal_ht,
+          tva_amount: invoice.tva_amount,
+          total_ttc: invoice.total_ttc,
+        })
+        .select()
+        .single()
+      if (invError) throw invError
+
+      const itemsPayload = items.map((it, i) => ({
+        invoice_id: newInvoice.id,
+        description: it.description,
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+        tva_rate: it.tva_rate,
+        position: i,
+      }))
+      await supabase.from('invoice_items').insert(itemsPayload)
+      await supabase.from('businesses').update({ invoice_next_number: business.invoice_next_number + 1 }).eq('id', business.id)
+
+      navigate(`/factures/${newInvoice.id}`)
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function buildPdfDoc() {
     const pdfTypeLabel = {
       acompte: "FACTURE D'ACOMPTE",
@@ -76,7 +121,7 @@ export default function FactureDetail() {
     await downloadDocumentPDF(buildPdfDoc())
   }
 
-  async function handleSendEmail() {
+  async function handleSendEmail(isReminder = false) {
     if (!client.email) {
       setEmailStatus("Ce client n'a pas d'adresse email enregistrée.")
       return
@@ -88,11 +133,26 @@ export default function FactureDetail() {
       const { base64, filename } = await getDocumentPDFBase64(docData)
 
       const docLabel = INVOICE_TYPE_LABELS[invoice.invoice_type] || 'Facture'
+      const remaining = Number(invoice.total_ttc) - Number(invoice.deposit_paid || 0)
       const paymentLine = invoice.stripe_payment_link_url
         ? `<p><a href="${invoice.stripe_payment_link_url}" style="display:inline-block; background:#2F6F5E; color:#fff; padding:10px 18px; border-radius:6px; text-decoration:none;">Payer en ligne</a></p>`
         : ''
 
-      const html = `
+      const html = isReminder
+        ? `
+        <div style="font-family: Arial, sans-serif; color: #1B2A4A; max-width: 560px;">
+          <h2 style="color: #C1502E;">Rappel — ${docLabel} ${invoice.number} impayée</h2>
+          <p>Bonjour ${client.name},</p>
+          <p>Sauf erreur de notre part, la ${docLabel.toLowerCase()} ${invoice.number} d'un montant de
+          <strong>${formatEUR(remaining)}</strong> reste à ce jour impayée
+          ${invoice.due_date ? `(échéance dépassée depuis le ${formatDate(invoice.due_date)})` : ''}.
+          Merci de bien vouloir procéder au règlement dans les meilleurs délais.</p>
+          ${paymentLine}
+          <p>N'hésitez pas à nous contacter si un règlement a déjà été effectué de votre côté.</p>
+          <p>Cordialement,<br/>${business.name}</p>
+        </div>
+      `
+        : `
         <div style="font-family: Arial, sans-serif; color: #1B2A4A; max-width: 560px;">
           <h2 style="color: #21503F;">${docLabel} ${invoice.number} — ${business.name}</h2>
           <p>Bonjour ${client.name},</p>
@@ -109,7 +169,7 @@ export default function FactureDetail() {
         body: JSON.stringify({
           to: client.email,
           toName: client.name,
-          subject: `${docLabel} ${invoice.number} — ${business.name}`,
+          subject: isReminder ? `Rappel — ${docLabel} ${invoice.number} impayée` : `${docLabel} ${invoice.number} — ${business.name}`,
           htmlContent: html,
           senderName: business.name,
           senderEmail: business.email,
@@ -123,7 +183,12 @@ export default function FactureDetail() {
         await supabase.from('invoices').update({ status: 'sent' }).eq('id', id)
         setInvoice((inv) => ({ ...inv, status: 'sent' }))
       }
-      setEmailStatus('Email envoyé avec succès.')
+      if (isReminder) {
+        const patch = { last_reminder_sent_at: new Date().toISOString(), reminder_count: (invoice.reminder_count || 0) + 1 }
+        await supabase.from('invoices').update(patch).eq('id', id)
+        setInvoice((inv) => ({ ...inv, ...patch }))
+      }
+      setEmailStatus(isReminder ? 'Relance envoyée avec succès.' : 'Email envoyé avec succès.')
     } catch (err) {
       setEmailStatus(`Erreur : ${err.message}`)
     } finally {
@@ -318,10 +383,25 @@ export default function FactureDetail() {
 
       <section className="panel action-row">
         <button className="btn-secondary" onClick={handleDownloadPDF}>Télécharger le PDF</button>
-        <button className="btn-secondary" disabled={sendingEmail} onClick={handleSendEmail}>
+        <button className="btn-secondary" disabled={busy} onClick={handleDuplicate}>Dupliquer</button>
+        <button className="btn-secondary" disabled={sendingEmail} onClick={() => handleSendEmail(false)}>
           {sendingEmail ? 'Envoi…' : 'Envoyer par email'}
         </button>
+        {invoice.status === 'overdue' && (
+          <button className="btn-primary" disabled={sendingEmail} onClick={() => handleSendEmail(true)}>
+            {sendingEmail ? 'Envoi…' : 'Relancer par email'}
+          </button>
+        )}
       </section>
+
+      {invoice.last_reminder_sent_at && (
+        <section className="panel">
+          <p className="muted" style={{ margin: 0 }}>
+            Dernière relance envoyée le {formatDate(invoice.last_reminder_sent_at)}
+            {invoice.reminder_count > 1 ? ` (${invoice.reminder_count} relances au total)` : ''}.
+          </p>
+        </section>
+      )}
 
       {emailStatus && (
         <section className="panel">

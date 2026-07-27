@@ -17,6 +17,9 @@ export default function Settings() {
   const [stripeTestResult, setStripeTestResult] = useState(null)
   const [stripeSaving, setStripeSaving] = useState(false)
   const [stripeSaved, setStripeSaved] = useState(false)
+  const [webhookSaving, setWebhookSaving] = useState(false)
+  const [webhookSaved, setWebhookSaved] = useState(false)
+  const [webhookError, setWebhookError] = useState('')
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }))
@@ -102,21 +105,40 @@ export default function Settings() {
     setStripeSaving(true)
     setStripeSaved(false)
     try {
-      const patch = {}
-      if (stripeKeyInput) patch.stripe_secret_key = stripeKeyInput
-      if (webhookSecretInput) patch.stripe_webhook_secret = webhookSecretInput
-
-      const { error: updateError } = await supabase.from('businesses').update(patch).eq('id', business.id)
+      const { error: updateError } = await supabase
+        .from('businesses')
+        .update({ stripe_secret_key: stripeKeyInput })
+        .eq('id', business.id)
       if (updateError) throw updateError
 
       await refreshBusiness()
       setStripeSaved(true)
       setStripeKeyInput('')
-      setWebhookSecretInput('')
     } catch (err) {
       setStripeTestResult({ ok: false, message: err.message })
     } finally {
       setStripeSaving(false)
+    }
+  }
+
+  async function handleSaveWebhookSecret() {
+    setWebhookSaving(true)
+    setWebhookSaved(false)
+    setWebhookError('')
+    try {
+      const { error: updateError } = await supabase
+        .from('businesses')
+        .update({ stripe_webhook_secret: webhookSecretInput })
+        .eq('id', business.id)
+      if (updateError) throw updateError
+
+      await refreshBusiness()
+      setWebhookSaved(true)
+      setWebhookSecretInput('')
+    } catch (err) {
+      setWebhookError(err.message)
+    } finally {
+      setWebhookSaving(false)
     }
   }
 
@@ -187,9 +209,11 @@ export default function Settings() {
             />
           </label>
         </div>
-        <button type="button" className="btn-secondary" style={{ marginTop: 12 }} disabled={!webhookSecretInput || stripeSaving} onClick={handleSaveStripeKey}>
-          {stripeSaving ? 'Enregistrement…' : 'Enregistrer ce secret webhook'}
+        <button type="button" className="btn-secondary" style={{ marginTop: 12 }} disabled={!webhookSecretInput || webhookSaving} onClick={handleSaveWebhookSecret}>
+          {webhookSaving ? 'Enregistrement…' : 'Enregistrer ce secret webhook'}
         </button>
+        {webhookSaved && <div className="form-info" style={{ marginTop: 12 }}>Webhook secret enregistré — la confirmation automatique des paiements est active.</div>}
+        {webhookError && <div className="form-error" style={{ marginTop: 12 }}>{webhookError}</div>}
         <p className="muted" style={{ marginTop: 12 }}>
           Sans ce webhook configuré, tout fonctionne quand même — tu devras juste cliquer manuellement sur "Marquer comme reçu/soldée" après avoir vérifié le paiement sur ton dashboard Stripe.
         </p>

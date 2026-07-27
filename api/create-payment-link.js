@@ -1,15 +1,11 @@
 // Fonction serverless Vercel — /api/create-payment-link
 // Crée un lien de paiement Stripe pour un acompte (ou solde) de facture.
 //
-// Si l'entreprise a connecté son propre compte Stripe (Stripe Connect), le
-// lien est créé sur CE compte : l'argent du client va directement chez
-// l'entreprise, pas sur le compte de la plateforme.
-// Sinon (compte non encore connecté), on utilise la clé Stripe de la
-// plateforme comme avant (compatibilité pendant la transition).
-//
-// Une commission plateforme optionnelle peut être prélevée automatiquement
-// sur chaque paiement via PLATFORM_FEE_PERCENT (ex. "2" pour 2%). Laisse
-// cette variable vide/à 0 si tu ne veux pas de commission.
+// Si l'entreprise a renseigné sa propre clé Stripe secrète (Paramètres →
+// Paiements en ligne), le lien est créé sur SON compte Stripe : l'argent du
+// client va directement chez elle.
+// Sinon (aucune clé personnelle renseignée), on utilise la clé Stripe de la
+// plateforme (STRIPE_SECRET_KEY) — c'est le comportement par défaut pour toi.
 //
 // Variables d'environnement requises : STRIPE_SECRET_KEY, SUPABASE_SERVICE_ROLE_KEY
 
@@ -27,57 +23,44 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Montant invalide' })
   }
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-
   try {
-    // Cherche si la facture appartient à une entreprise avec un compte Stripe connecté
-    let connectedAccountId = null
+    // Cherche si la facture appartient à une entreprise avec sa propre clé Stripe
+    let stripeSecretKey = process.env.STRIPE_SECRET_KEY
+    let usingOwnKey = false
+
     if (invoiceId && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       const supabaseAdmin = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
       const { data: invoice } = await supabaseAdmin
         .from('invoices')
-        .select('business_id, businesses(stripe_connect_account_id, stripe_connect_charges_enabled)')
+        .select('business_id, businesses(stripe_secret_key)')
         .eq('id', invoiceId)
         .single()
 
-      if (invoice?.businesses?.stripe_connect_account_id && invoice.businesses.stripe_connect_charges_enabled) {
-        connectedAccountId = invoice.businesses.stripe_connect_account_id
+      if (invoice?.businesses?.stripe_secret_key) {
+        stripeSecretKey = invoice.businesses.stripe_secret_key
+        usingOwnKey = true
       }
     }
 
-    const stripeOptions = connectedAccountId ? { stripeAccount: connectedAccountId } : undefined
+    const stripe = new Stripe(stripeSecretKey)
 
-    const price = await stripe.prices.create(
-      {
-        currency: 'eur',
-        unit_amount: Math.round(amount * 100), // Stripe attend des centimes
-        product_data: {
-          name: description || `Facture ${invoiceNumber}`,
-        },
+    const price = await stripe.prices.create({
+      currency: 'eur',
+      unit_amount: Math.round(amount * 100), // Stripe attend des centimes
+      product_data: {
+        name: description || `Facture ${invoiceNumber}`,
       },
-      stripeOptions
-    )
+    })
 
-    const paymentIntentData = {
+    const paymentLink = await stripe.paymentLinks.create({
+      line_items: [{ price: price.id, quantity: 1 }],
       metadata: { invoiceNumber: invoiceNumber || '', invoiceId: invoiceId || '' },
-    }
-
-    // Commission plateforme optionnelle (uniquement sur les comptes connectés)
-    const feePercent = Number(process.env.PLATFORM_FEE_PERCENT || 0)
-    if (connectedAccountId && feePercent > 0) {
-      paymentIntentData.application_fee_amount = Math.round(amount * 100 * (feePercent / 100))
-    }
-
-    const paymentLink = await stripe.paymentLinks.create(
-      {
-        line_items: [{ price: price.id, quantity: 1 }],
+      payment_intent_data: {
         metadata: { invoiceNumber: invoiceNumber || '', invoiceId: invoiceId || '' },
-        payment_intent_data: paymentIntentData,
       },
-      stripeOptions
-    )
+    })
 
-    return res.status(200).json({ url: paymentLink.url, id: paymentLink.id, connected: !!connectedAccountId })
+    return res.status(200).json({ url: paymentLink.url, id: paymentLink.id, usingOwnKey })
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: err.message })

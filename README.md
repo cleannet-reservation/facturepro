@@ -24,7 +24,7 @@ Dans Supabase → **SQL Editor** :
 3. `supabase/migration_achats_frais_recurrentes.sql`
 4. `supabase/migration_logo_storage.sql`
 5. `supabase/migration_relances.sql`
-6. `supabase/migration_stripe_connect.sql`
+6. `supabase/migration_stripe_cle_directe.sql`
 
 ## Variables d'environnement (Vercel → Settings → Environment Variables)
 
@@ -50,28 +50,22 @@ C'est déjà actif dès que le fichier `vercel.json` est déployé — rien à c
 
 Tu peux aussi relancer une facture précise manuellement à tout moment, via le bouton "Relancer par email" qui apparaît sur une facture en retard.
 
-## Stripe Connect (pour revendre FacturePro à d'autres entreprises)
+## Paiements par entreprise (clé Stripe directe, pour revendre FacturePro à d'autres)
 
-Sans Stripe Connect, tous les paiements clients arrivent sur **ton** compte Stripe — ça ne marche que tant que tu es le seul utilisateur. Stripe Connect permet à chaque entreprise qui utilise FacturePro de connecter son propre compte Stripe : l'argent de ses clients va directement chez elle.
+Sans configuration, tous les paiements clients arrivent sur **ton** compte Stripe (celui de `STRIPE_SECRET_KEY`) — ça ne marche que tant que tu es le seul utilisateur.
 
-**Configuration côté Stripe (une seule fois) :**
+Pour qu'une entreprise reçoive l'argent de ses propres clients, elle va dans **Paramètres → Paiements en ligne** dans FacturePro, et colle sa **propre clé secrète Stripe** (récupérée sur son compte Stripe personnel, gratuit à créer). Un bouton "Tester la clé" vérifie qu'elle est valide avant de l'enregistrer.
 
-1. Va sur [dashboard.stripe.com](https://dashboard.stripe.com) → **Connect** dans le menu (si tu ne le vois pas, cherche "Paramètres Connect" ou active Connect depuis les paramètres de la plateforme)
-2. Configure les infos de base de ta plateforme (nom, logo — c'est ce que verront tes futurs clients pendant l'onboarding Stripe)
-3. Dans **Webhooks**, crée une **deuxième destination** (en plus de celle déjà créée pour ton propre compte) :
-   - URL : `https://TON-SITE.vercel.app/api/stripe-webhook` (la même URL que l'autre)
-   - **Périmètre : "Comptes connectés"** (pas "Votre compte")
-   - Événement à écouter : `checkout.session.completed`
-4. Copie le **Signing secret** de cette nouvelle destination → colle-le dans `STRIPE_CONNECT_WEBHOOK_SECRET` sur Vercel
-5. Redéploie
+**Pour que ses factures passent en "payée" automatiquement** (sans clic manuel), elle doit en plus :
+1. Copier l'URL de webhook affichée dans Paramètres (unique à son entreprise)
+2. Aller sur son compte Stripe → Webhooks → créer un endpoint avec cette URL, événement `checkout.session.completed`
+3. Copier le "Signing secret" fourni par Stripe → le coller dans Paramètres → "Enregistrer ce secret webhook"
 
-**Utilisation :**
+Sans cette dernière étape, tout fonctionne quand même — juste avec une confirmation manuelle ("Marquer comme reçu/soldée") au lieu d'automatique.
 
-Chaque entreprise (toi y compris) va dans **Paramètres → Paiements en ligne** et clique **"Connecter mon compte Stripe"**. Ça ouvre le formulaire d'inscription Stripe (infos bancaires, identité). Une fois complété, le statut passe à "Compte Stripe connecté et actif", et tous les prochains liens de paiement générés sur les factures de cette entreprise vont sur son propre compte Stripe.
+**Note de sécurité avant d'ouvrir FacturePro à d'autres personnes payantes :** les clés Stripe des entreprises sont stockées en clair dans la base Supabase (colonne `businesses.stripe_secret_key`), protégées uniquement par le Row Level Security. C'est correct pour un usage personnel ou entre gens de confiance, mais avant une vraie ouverture commerciale, il vaudrait mieux chiffrer ces clés (ou repasser sur Stripe Connect, plus robuste mais plus complexe à mettre en place). Dis-le-moi quand tu en es là.
 
-**Note de sécurité importante avant d'ouvrir FacturePro à d'autres personnes :** actuellement, `api/stripe-connect-onboard.js` fait confiance à l'identifiant d'entreprise envoyé par le frontend, sans vérifier que la personne qui appelle est bien connectée et propriétaire de cette entreprise. Tant que tu es seul utilisateur, ce n'est pas un risque. Avant de vendre l'accès à d'autres, il faudra ajouter une vérification du token de session Supabase dans cette fonction — dis-le-moi quand tu en es là, c'est une modification rapide à faire.
-
-## Configurer le webhook Stripe (paiement automatique)
+## Configurer TON webhook Stripe (paiement automatique sur ton propre compte)
 
 1. Va sur [dashboard.stripe.com](https://dashboard.stripe.com) → **Developers → Webhooks → Add endpoint**
 2. URL du endpoint : `https://TON-SITE.vercel.app/api/stripe-webhook`

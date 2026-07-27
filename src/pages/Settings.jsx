@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
@@ -10,43 +10,13 @@ export default function Settings() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
-  const [stripeStatus, setStripeStatus] = useState(null)
-  const [stripeLoading, setStripeLoading] = useState(false)
-  const [stripeError, setStripeError] = useState('')
 
-  useEffect(() => {
-    if (business) checkStripeStatus()
-  }, [business])
-
-  async function checkStripeStatus() {
-    try {
-      const res = await fetch(`/api/stripe-connect-status?businessId=${business.id}`)
-      const data = await res.json()
-      setStripeStatus(data)
-    } catch {
-      setStripeStatus(null)
-    }
-  }
-
-  async function handleConnectStripe() {
-    setStripeLoading(true)
-    setStripeError('')
-    try {
-      const res = await fetch('/api/stripe-connect-onboard', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessId: business.id, returnOrigin: window.location.origin }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || `Erreur serveur (code ${res.status})`)
-      if (!data.url) throw new Error("Réponse inattendue du serveur : pas de lien reçu")
-      window.location.href = data.url
-    } catch (err) {
-      console.error('Erreur Stripe Connect :', err)
-      setStripeError(err.message)
-      setStripeLoading(false)
-    }
-  }
+  const [stripeKeyInput, setStripeKeyInput] = useState('')
+  const [webhookSecretInput, setWebhookSecretInput] = useState('')
+  const [stripeTesting, setStripeTesting] = useState(false)
+  const [stripeTestResult, setStripeTestResult] = useState(null)
+  const [stripeSaving, setStripeSaving] = useState(false)
+  const [stripeSaved, setStripeSaved] = useState(false)
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }))
@@ -109,6 +79,49 @@ export default function Settings() {
     }
   }
 
+  async function handleTestStripeKey() {
+    setStripeTesting(true)
+    setStripeTestResult(null)
+    try {
+      const res = await fetch('/api/stripe-key-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secretKey: stripeKeyInput }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.valid) throw new Error(data.error || 'Clé invalide')
+      setStripeTestResult({ ok: true, message: `Clé valide — compte Stripe : ${data.accountName}` })
+    } catch (err) {
+      setStripeTestResult({ ok: false, message: err.message })
+    } finally {
+      setStripeTesting(false)
+    }
+  }
+
+  async function handleSaveStripeKey() {
+    setStripeSaving(true)
+    setStripeSaved(false)
+    try {
+      const patch = {}
+      if (stripeKeyInput) patch.stripe_secret_key = stripeKeyInput
+      if (webhookSecretInput) patch.stripe_webhook_secret = webhookSecretInput
+
+      const { error: updateError } = await supabase.from('businesses').update(patch).eq('id', business.id)
+      if (updateError) throw updateError
+
+      await refreshBusiness()
+      setStripeSaved(true)
+      setStripeKeyInput('')
+      setWebhookSecretInput('')
+    } catch (err) {
+      setStripeTestResult({ ok: false, message: err.message })
+    } finally {
+      setStripeSaving(false)
+    }
+  }
+
+  const webhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/stripe-webhook?business=${business?.id}` : ''
+
   return (
     <div>
       <header className="page-header">
@@ -117,23 +130,69 @@ export default function Settings() {
 
       <section className="panel">
         <h2 className="section-title" style={{ marginTop: 0 }}>Paiements en ligne (Stripe)</h2>
-        {stripeStatus?.connected && stripeStatus?.chargesEnabled ? (
-          <div className="form-info">
-            Compte Stripe connecté et actif — les paiements de tes clients arrivent directement sur ton compte.
-          </div>
-        ) : stripeStatus?.connected ? (
-          <div className="form-error">
-            Compte Stripe en cours de vérification — Stripe demande encore quelques informations avant de pouvoir accepter des paiements.
-          </div>
+
+        {business?.stripe_secret_key ? (
+          <div className="form-info">Une clé Stripe est enregistrée pour cette entreprise — les paiements de tes clients vont directement sur ce compte.</div>
         ) : (
           <p className="muted" style={{ marginBottom: 12 }}>
-            Connecte ton compte Stripe pour recevoir directement l'argent de tes clients quand ils paient une facture en ligne.
+            Colle ici ta clé Stripe secrète pour que les paiements de tes clients arrivent directement sur ton propre compte Stripe.
           </p>
         )}
-        <button className="btn-secondary" style={{ marginTop: 12 }} disabled={stripeLoading} onClick={handleConnectStripe}>
-          {stripeLoading ? 'Redirection…' : stripeStatus?.connected ? 'Gérer / compléter mon compte Stripe' : 'Connecter mon compte Stripe'}
+
+        <div className="form-grid" style={{ marginTop: 12 }}>
+          <label className="span-2">
+            Clé secrète Stripe (commence par sk_live_ ou sk_test_)
+            <input
+              type="password"
+              value={stripeKeyInput}
+              onChange={(e) => setStripeKeyInput(e.target.value)}
+              placeholder="sk_live_..."
+            />
+          </label>
+        </div>
+
+        <div className="action-row" style={{ marginTop: 12 }}>
+          <button type="button" className="btn-secondary" disabled={!stripeKeyInput || stripeTesting} onClick={handleTestStripeKey}>
+            {stripeTesting ? 'Test…' : 'Tester la clé'}
+          </button>
+          <button type="button" className="btn-primary" disabled={!stripeKeyInput || stripeSaving} onClick={handleSaveStripeKey}>
+            {stripeSaving ? 'Enregistrement…' : 'Enregistrer cette clé'}
+          </button>
+        </div>
+
+        {stripeTestResult && (
+          <div className={stripeTestResult.ok ? 'form-info' : 'form-error'} style={{ marginTop: 12 }}>
+            {stripeTestResult.message}
+          </div>
+        )}
+        {stripeSaved && <div className="form-info" style={{ marginTop: 12 }}>Clé Stripe enregistrée.</div>}
+
+        <h2 className="section-title">Confirmation automatique des paiements (optionnel)</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          Pour que tes factures passent en "payée" automatiquement (sans avoir à cliquer toi-même), crée un webhook
+          sur ton compte Stripe avec cette URL, événement <code>checkout.session.completed</code> :
+        </p>
+        <div className="payment-link-box">
+          <input readOnly value={webhookUrl} />
+          <button type="button" className="btn-secondary" onClick={() => navigator.clipboard.writeText(webhookUrl)}>Copier</button>
+        </div>
+        <div className="form-grid" style={{ marginTop: 12 }}>
+          <label className="span-2">
+            Clé secrète du webhook (whsec_...)
+            <input
+              type="password"
+              value={webhookSecretInput}
+              onChange={(e) => setWebhookSecretInput(e.target.value)}
+              placeholder="whsec_..."
+            />
+          </label>
+        </div>
+        <button type="button" className="btn-secondary" style={{ marginTop: 12 }} disabled={!webhookSecretInput || stripeSaving} onClick={handleSaveStripeKey}>
+          {stripeSaving ? 'Enregistrement…' : 'Enregistrer ce secret webhook'}
         </button>
-        {stripeError && <div className="form-error" style={{ marginTop: 12 }}>{stripeError}</div>}
+        <p className="muted" style={{ marginTop: 12 }}>
+          Sans ce webhook configuré, tout fonctionne quand même — tu devras juste cliquer manuellement sur "Marquer comme reçu/soldée" après avoir vérifié le paiement sur ton dashboard Stripe.
+        </p>
       </section>
 
       <form onSubmit={handleSubmit} className="panel form-grid">

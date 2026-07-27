@@ -1,14 +1,18 @@
-// Fonction serverless Vercel — /api/stripe-webhook
+// Fonction serverless Vercel — /api/stripe-webhook?business=<business_id>
 // Reçoit les événements Stripe (paiement d'acompte/facture confirmé) et met
 // à jour automatiquement la facture correspondante dans Supabase, sans
 // intervention manuelle.
 //
+// Deux cas de figure :
+// - Webhook sur TON compte Stripe (celui de la plateforme) : vérifié avec
+//   STRIPE_WEBHOOK_SECRET, pas de paramètre ?business= dans l'URL.
+// - Webhook sur le compte Stripe PERSONNEL d'une entreprise (Paramètres →
+//   Paiements en ligne) : vérifié avec le secret propre à cette entreprise
+//   (stripe_webhook_secret en base), identifiée via ?business=<id> dans l'URL.
+//
 // Variables d'environnement requises sur Vercel :
-//   STRIPE_SECRET_KEY       (déjà utilisée pour créer les liens de paiement)
-//   STRIPE_WEBHOOK_SECRET   (webhook sur "Votre compte")
-//   STRIPE_CONNECT_WEBHOOK_SECRET (optionnelle : webhook sur "Comptes connectés",
-//                            nécessaire seulement si tu utilises Stripe Connect)
-//   SUPABASE_SERVICE_ROLE_KEY (clé secrète Supabase, jamais exposée au frontend)
+//   STRIPE_WEBHOOK_SECRET      (webhook sur ton propre compte)
+//   SUPABASE_SERVICE_ROLE_KEY  (clé secrète Supabase, jamais exposée au frontend)
 //
 // IMPORTANT : cette fonction a besoin du corps brut (non parsé) de la requête
 // pour vérifier la signature Stripe — d'où bodyParser: false ci-dessous.
@@ -34,29 +38,33 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Méthode non autorisée' })
   }
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
   const rawBody = await readRawBody(req)
   const signature = req.headers['stripe-signature']
+  const businessId = req.query.business
+  const supabaseAdmin = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
-  let event
-  try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET)
-  } catch (platformErr) {
-    // Peut être un événement d'un compte Stripe Connect (autre secret de signature)
-    if (process.env.STRIPE_CONNECT_WEBHOOK_SECRET) {
-      try {
-        event = stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_CONNECT_WEBHOOK_SECRET)
-      } catch (connectErr) {
-        console.error('Signature Stripe invalide :', connectErr.message)
-        return res.status(400).json({ error: `Webhook signature invalide : ${connectErr.message}` })
-      }
-    } else {
-      console.error('Signature Stripe invalide :', platformErr.message)
-      return res.status(400).json({ error: `Webhook signature invalide : ${platformErr.message}` })
+  // Détermine quel secret utiliser pour vérifier la signature
+  let webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  if (businessId) {
+    const { data: business } = await supabaseAdmin
+      .from('businesses')
+      .select('stripe_webhook_secret')
+      .eq('id', businessId)
+      .single()
+    if (business?.stripe_webhook_secret) {
+      webhookSecret = business.stripe_webhook_secret
     }
   }
 
-  const supabaseAdmin = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+  let event
+  try {
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
+  } catch (err) {
+    console.error('Signature Stripe invalide :', err.message)
+    return res.status(400).json({ error: `Webhook signature invalide : ${err.message}` })
+  }
 
   try {
     if (event.type === 'checkout.session.completed') {

@@ -16,6 +16,7 @@ import Achats from './pages/Achats'
 import NotesDeFrais from './pages/NotesDeFrais'
 import Settings from './pages/Settings'
 import PublicQuote from './pages/PublicQuote'
+import ResetPassword from './pages/ResetPassword'
 
 function Gate({ children }) {
   const { session, business, loading } = useAuth()
@@ -33,6 +34,9 @@ export default function App() {
         <Routes>
           {/* Route publique : consultation d'un devis par le client, sans compte */}
           <Route path="/consultation/devis/:token" element={<PublicQuote />} />
+
+          {/* Route publique : réinitialisation du mot de passe via le lien reçu par email */}
+          <Route path="/reinitialiser-mot-de-passe" element={<ResetPassword />} />
 
           {/* Tout le reste de l'app nécessite une connexion */}
           <Route

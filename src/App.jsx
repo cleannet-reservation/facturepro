@@ -5,6 +5,8 @@ import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
+import ClientDetail from './pages/ClientDetail'
+import Catalogue from './pages/Catalogue'
 import Devis from './pages/Devis'
 import DevisForm from './pages/DevisForm'
 import DevisDetail from './pages/DevisDetail'
@@ -47,6 +49,8 @@ export default function App() {
                   <Route path="/" element={<Layout />}>
                     <Route index element={<Dashboard />} />
                     <Route path="clients" element={<Clients />} />
+                    <Route path="clients/:id" element={<ClientDetail />} />
+                    <Route path="catalogue" element={<Catalogue />} />
                     <Route path="devis" element={<Devis />} />
                     <Route path="devis/nouveau" element={<DevisForm />} />
                     <Route path="devis/:id" element={<DevisDetail />} />

@@ -358,6 +358,10 @@ fieldset legend {
   white-space: nowrap;
 }
 
+.catalogue-select {
+  max-width: 260px;
+}
+
 /* ---------- Stat cards ---------- */
 .stat-grid {
   display: grid;

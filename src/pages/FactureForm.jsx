@@ -13,6 +13,7 @@ export default function FactureForm() {
   const navigate = useNavigate()
   const [clients, setClients] = useState([])
   const [clientId, setClientId] = useState('')
+  const [services, setServices] = useState([])
   const [dueDate, setDueDate] = useState(defaultDueDate())
   const [taxCreditEligible, setTaxCreditEligible] = useState(false)
   const [notes, setNotes] = useState('')
@@ -27,8 +28,16 @@ export default function FactureForm() {
   }
 
   useEffect(() => {
-    if (business) loadClients()
+    if (business) {
+      loadClients()
+      loadServices()
+    }
   }, [business])
+
+  async function loadServices() {
+    const { data } = await supabase.from('services').select('*').eq('business_id', business.id).order('name')
+    setServices(data || [])
+  }
 
   async function loadClients() {
     const { data } = await supabase.from('clients').select('*').eq('business_id', business.id).order('name')
@@ -42,6 +51,12 @@ export default function FactureForm() {
 
   function addItem() {
     setItems((prev) => [...prev, emptyItem()])
+  }
+
+  function addFromCatalogue(serviceId) {
+    const service = services.find((s) => s.id === serviceId)
+    if (!service) return
+    setItems((prev) => [...prev, { description: service.name, quantity: 1, unit_price: service.unit_price, tva_rate: service.tva_rate }])
   }
 
   function removeItem(index) {
@@ -152,7 +167,21 @@ export default function FactureForm() {
             ))}
           </tbody>
         </table>
-        <button type="button" className="link-btn" onClick={addItem}>+ Ajouter une ligne</button>
+        <div className="action-row">
+          <button type="button" className="link-btn" onClick={addItem}>+ Ajouter une ligne</button>
+          {services.length > 0 && (
+            <select
+              className="catalogue-select"
+              value=""
+              onChange={(e) => { if (e.target.value) addFromCatalogue(e.target.value); e.target.value = '' }}
+            >
+              <option value="">+ Depuis le catalogue…</option>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>{s.name} — {formatEUR(s.unit_price)}</option>
+              ))}
+            </select>
+          )}
+        </div>
 
         <div className="totals-box">
           {business?.tax_regime === 'assujetti' && (

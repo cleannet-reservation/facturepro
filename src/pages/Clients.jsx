@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 
@@ -78,7 +79,7 @@ export default function Clients() {
             <tbody>
               {clients.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.name}</td>
+                  <td><Link to={`/clients/${c.id}`}>{c.name}</Link></td>
                   <td>{c.email}</td>
                   <td>{c.phone}</td>
                   <td>{c.city}</td>

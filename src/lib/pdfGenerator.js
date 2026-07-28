@@ -248,3 +248,140 @@ export async function getDocumentPDFBase64(doc_) {
   const base64 = dataUri.split(',')[1]
   return { base64, filename: `${safeType}-${doc_.number}.pdf` }
 }
+
+// Génère l'attestation fiscale annuelle Services à la Personne (crédit d'impôt 50%)
+// data: { business, client, year, totalPaid, invoices: [{ number, issue_date, amount }] }
+export async function generateAttestationPDF(data) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const margin = 20
+  let y = 25
+
+  const ink = [27, 42, 74]
+  const teal = [47, 111, 94]
+  const grey = [110, 105, 95]
+
+  let textStartX = margin
+  if (data.business.logo_url) {
+    const dataUrl = await loadImageAsDataURL(data.business.logo_url)
+    if (dataUrl) {
+      try {
+        const format = dataUrl.includes('image/png') ? 'PNG' : 'JPEG'
+        doc.addImage(dataUrl, format, margin, y - 6, 18, 18, undefined, 'FAST')
+        textStartX = margin + 24
+      } catch {
+        // logo illisible : on continue sans bloquer la génération du PDF
+      }
+    }
+  }
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.setTextColor(...ink)
+  doc.text(data.business.name || '', textStartX, y)
+  y += 6
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(...grey)
+  const bizLines = [
+    data.business.address,
+    [data.business.postal_code, data.business.city].filter(Boolean).join(' '),
+    data.business.siret ? `SIRET : ${data.business.siret}` : null,
+    `Agrément Services à la Personne n° ${data.business.sap_agrement_number || '—'}`,
+  ].filter(Boolean)
+  bizLines.forEach((line) => {
+    doc.text(line, textStartX, y)
+    y += 4.5
+  })
+
+  y += 12
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(17)
+  doc.setTextColor(...teal)
+  doc.text('ATTESTATION FISCALE ANNUELLE', pageWidth / 2, y, { align: 'center' })
+  y += 7
+  doc.setFontSize(12)
+  doc.text(`Services à la Personne — Année ${data.year}`, pageWidth / 2, y, { align: 'center' })
+  y += 14
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10.5)
+  doc.setTextColor(...ink)
+  const introLines = doc.splitTextToSize(
+    `Je soussigné(e), représentant de ${data.business.name}, certifie avoir fourni au cours de l'année ${data.year} des prestations de services à la personne à :`,
+    pageWidth - margin * 2
+  )
+  doc.text(introLines, margin, y)
+  y += introLines.length * 5.5 + 6
+
+  doc.setDrawColor(220, 217, 208)
+  doc.setFillColor(247, 244, 236)
+  doc.roundedRect(margin, y, pageWidth - margin * 2, 22, 1, 1, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(...ink)
+  doc.text(data.client.name, margin + 6, y + 9)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9.5)
+  doc.setTextColor(...grey)
+  const clientAddress = [data.client.address, [data.client.postal_code, data.client.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+  doc.text(clientAddress, margin + 6, y + 16)
+  y += 32
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10.5)
+  doc.setTextColor(...ink)
+  const bodyLines = doc.splitTextToSize(
+    `Le montant total des sommes effectivement versées au titre de ces prestations au cours de l'année ${data.year} s'élève à :`,
+    pageWidth - margin * 2
+  )
+  doc.text(bodyLines, margin, y)
+  y += bodyLines.length * 5.5 + 8
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(20)
+  doc.setTextColor(...teal)
+  doc.text(formatEUR(data.totalPaid), pageWidth / 2, y, { align: 'center' })
+  y += 14
+
+  doc.setFont('helvetica', 'italic')
+  doc.setFontSize(9)
+  doc.setTextColor(...grey)
+  const legalLines = doc.splitTextToSize(
+    "Cette attestation est délivrée conformément à l'article 199 sexdecies du Code Général des Impôts. Elle est à conserver par le bénéficiaire et à produire, le cas échéant, à l'administration fiscale. Le montant indiqué ouvre droit à un crédit ou une réduction d'impôt sur le revenu de 50%, sous réserve du respect des conditions et plafonds légaux applicables à la situation du bénéficiaire.",
+    pageWidth - margin * 2
+  )
+  doc.text(legalLines, margin, y)
+  y += legalLines.length * 4.5 + 10
+
+  // Détail des factures concernées
+  if (data.invoices && data.invoices.length > 0) {
+    autoTable(doc, {
+      startY: y,
+      head: [['N° de facture', 'Date', 'Montant réglé']],
+      body: data.invoices.map((inv) => [inv.number, formatDate(inv.issue_date), formatEUR(inv.amount)]),
+      theme: 'plain',
+      headStyles: { fillColor: ink, textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      bodyStyles: { fontSize: 9, textColor: [40, 38, 34] },
+      alternateRowStyles: { fillColor: [250, 248, 243] },
+      margin: { left: margin, right: margin },
+    })
+    y = doc.lastAutoTable.finalY + 14
+  }
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(...ink)
+  doc.text(`Fait le ${formatDate(new Date().toISOString())}`, margin, y)
+  doc.text('Signature et cachet', pageWidth - margin - 60, y)
+  doc.setDrawColor(...grey)
+  doc.rect(pageWidth - margin - 60, y + 4, 60, 24)
+
+  return doc
+}
+
+export async function downloadAttestationPDF(data) {
+  const pdf = await generateAttestationPDF(data)
+  pdf.save(`Attestation-SAP-${data.year}-${data.client.name.replace(/[^a-zA-Z0-9]+/g, '-')}.pdf`)
+}

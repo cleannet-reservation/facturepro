@@ -10,6 +10,7 @@ export default function Layout() {
         <div className="brand-mark">FacturePro</div>
         <nav>
           <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>Tableau de bord</NavLink>
+          <NavLink to="/tresorerie" className={({ isActive }) => (isActive ? 'active' : '')}>Trésorerie</NavLink>
           <NavLink to="/clients" className={({ isActive }) => (isActive ? 'active' : '')}>Clients</NavLink>
           <NavLink to="/catalogue" className={({ isActive }) => (isActive ? 'active' : '')}>Catalogue</NavLink>
           <NavLink to="/devis" className={({ isActive }) => (isActive ? 'active' : '')}>Devis</NavLink>

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { formatEUR, formatDate, INVOICE_TYPE_LABELS, INVOICE_STATUS_OPTIONS, STATUS_LABELS } from '../lib/calc'
 import { flagOverdueInvoices } from '../lib/invoiceHelpers'
+import { downloadCSV } from '../lib/csvExport'
 import StatusSelect from '../components/StatusSelect'
 
 export default function Factures() {
@@ -56,11 +57,35 @@ export default function Factures() {
     setDateTo('')
   }
 
+  function handleExportCSV() {
+    const headers = ['Numéro', 'Type', 'Client', 'Date émission', 'Échéance', 'Total HT', 'TVA', 'Total TTC', 'Montant réglé', 'Reste à payer', 'Statut']
+    const rows = filtered.map((inv) => {
+      const paid = inv.status === 'paid' ? Number(inv.total_ttc) : Number(inv.deposit_paid || 0)
+      return [
+        inv.number,
+        INVOICE_TYPE_LABELS[inv.invoice_type] || 'Facture',
+        inv.clients?.name || '',
+        formatDate(inv.issue_date),
+        inv.due_date ? formatDate(inv.due_date) : '',
+        inv.subtotal_ht,
+        inv.tva_amount,
+        inv.total_ttc,
+        paid,
+        Number(inv.total_ttc) - paid,
+        STATUS_LABELS[inv.status] || inv.status,
+      ]
+    })
+    downloadCSV(`factures-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows)
+  }
+
   return (
     <div>
       <header className="page-header">
         <h1>Factures</h1>
-        <Link to="/factures/nouvelle" className="btn-primary">+ Nouvelle facture</Link>
+        <div className="action-row">
+          <button className="btn-secondary" onClick={handleExportCSV} disabled={filtered.length === 0}>Exporter en CSV</button>
+          <Link to="/factures/nouvelle" className="btn-primary">+ Nouvelle facture</Link>
+        </div>
       </header>
 
       <section className="panel">

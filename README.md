@@ -11,7 +11,9 @@ Devis, factures et acomptes en ligne.
 - Statut "en retard" automatique + relances par email (manuelles ou automatiques une fois par jour)
 - Paiement d'acompte ou paiement complet via lien Stripe, confirmé **automatiquement** par webhook (plus besoin de cocher "reçu" à la main)
 - Duplication de devis/factures existants
-- Recherche et filtres sur les listes de devis/factures
+- Recherche et filtres sur les listes, export CSV comptable
+- Catalogue de prestations réutilisables, fiche client enrichie
+- Attestation fiscale annuelle pour les clients éligibles au crédit d'impôt SAP
 - Factures d'achat, notes de frais, factures récurrentes
 - Tableau de bord avec graphique de chiffre d'affaires et statuts cliquables
 

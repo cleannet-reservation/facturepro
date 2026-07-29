@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
+import Tresorerie from './pages/Tresorerie'
 import Clients from './pages/Clients'
 import ClientDetail from './pages/ClientDetail'
 import Catalogue from './pages/Catalogue'
@@ -48,6 +49,7 @@ export default function App() {
                 <Routes>
                   <Route path="/" element={<Layout />}>
                     <Route index element={<Dashboard />} />
+                    <Route path="tresorerie" element={<Tresorerie />} />
                     <Route path="clients" element={<Clients />} />
                     <Route path="clients/:id" element={<ClientDetail />} />
                     <Route path="catalogue" element={<Catalogue />} />

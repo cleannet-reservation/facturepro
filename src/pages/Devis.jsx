@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { formatEUR, formatDate, QUOTE_STATUS_OPTIONS, STATUS_LABELS } from '../lib/calc'
+import { downloadCSV } from '../lib/csvExport'
 import StatusSelect from '../components/StatusSelect'
 
 export default function Devis() {
@@ -54,11 +55,29 @@ export default function Devis() {
     setDateTo('')
   }
 
+  function handleExportCSV() {
+    const headers = ['Numéro', 'Client', 'Date émission', "Date de validité", 'Total HT', 'TVA', 'Total TTC', 'Statut']
+    const rows = filtered.map((q) => [
+      q.number,
+      q.clients?.name || '',
+      formatDate(q.issue_date),
+      q.validity_date ? formatDate(q.validity_date) : '',
+      q.subtotal_ht,
+      q.tva_amount,
+      q.total_ttc,
+      STATUS_LABELS[q.status] || q.status,
+    ])
+    downloadCSV(`devis-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows)
+  }
+
   return (
     <div>
       <header className="page-header">
         <h1>Devis</h1>
-        <Link to="/devis/nouveau" className="btn-primary">+ Nouveau devis</Link>
+        <div className="action-row">
+          <button className="btn-secondary" onClick={handleExportCSV} disabled={filtered.length === 0}>Exporter en CSV</button>
+          <Link to="/devis/nouveau" className="btn-primary">+ Nouveau devis</Link>
+        </div>
       </header>
 
       <section className="panel">

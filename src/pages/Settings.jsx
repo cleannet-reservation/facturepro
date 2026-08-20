@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import { applyBrandColor } from '../lib/theme'
 
 export default function Settings() {
   const { business, session, refreshBusiness } = useAuth()
@@ -69,10 +70,13 @@ export default function Settings() {
           sap_eligible: form.sap_eligible,
           sap_agrement_number: form.sap_agrement_number,
           logo_url: logoUrl,
+          app_name: form.app_name,
+          brand_color: form.brand_color,
         })
         .eq('id', business.id)
       if (updateError) throw updateError
 
+      if (form.brand_color) applyBrandColor(form.brand_color)
       await refreshBusiness()
       setSaved(true)
     } catch (err) {
@@ -216,6 +220,37 @@ export default function Settings() {
         {webhookError && <div className="form-error" style={{ marginTop: 12 }}>{webhookError}</div>}
         <p className="muted" style={{ marginTop: 12 }}>
           Sans ce webhook configuré, tout fonctionne quand même — tu devras juste cliquer manuellement sur "Marquer comme reçu/soldée" après avoir vérifié le paiement sur ton dashboard Stripe.
+        </p>
+      </section>
+
+      <section className="panel">
+        <h2 className="section-title" style={{ marginTop: 0 }}>Marque blanche</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          Personnalise le nom affiché et la couleur d'accent de l'application — utile si tu déploies cette app pour un autre client sous son propre nom.
+        </p>
+        <div className="form-grid">
+          <label>Nom affiché de l'application
+            <input value={form.app_name || ''} onChange={(e) => update('app_name', e.target.value)} placeholder="FacturePro" />
+          </label>
+          <label>Couleur d'accent
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <input
+                type="color"
+                value={form.brand_color || '#22D3EE'}
+                onChange={(e) => update('brand_color', e.target.value)}
+                style={{ width: 48, height: 40, padding: 2, cursor: 'pointer' }}
+              />
+              <input
+                value={form.brand_color || '#22D3EE'}
+                onChange={(e) => update('brand_color', e.target.value)}
+                placeholder="#22D3EE"
+                style={{ flex: 1 }}
+              />
+            </div>
+          </label>
+        </div>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Le nom ci-dessus ne s'affiche qu'une fois connecté. Pour les écrans de connexion (avant identification), règle aussi la variable d'environnement <code>VITE_APP_NAME</code> sur Vercel avec la même valeur.
         </p>
       </section>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { APP_NAME } from '../lib/theme'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
@@ -47,7 +48,7 @@ export default function ResetPassword() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="brand-mark">FacturePro</div>
+        <div className="brand-mark">{APP_NAME}</div>
         <h1>Nouveau mot de passe</h1>
 
         {!ready ? (

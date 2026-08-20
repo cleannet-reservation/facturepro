@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import { APP_NAME } from '../lib/theme'
 
 export default function Onboarding() {
   const { session, refreshBusiness } = useAuth()
@@ -45,7 +46,7 @@ export default function Onboarding() {
   return (
     <div className="auth-page">
       <div className="auth-card wide">
-        <div className="brand-mark">FacturePro</div>
+        <div className="brand-mark">{APP_NAME}</div>
         <h1>Configure ton entreprise</h1>
         <p className="auth-sub">Ces informations apparaîtront sur tous tes devis et factures.</p>
 

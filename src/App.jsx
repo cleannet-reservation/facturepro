@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
+import Subscribe from './pages/Subscribe'
+import AdminDashboard from './pages/AdminDashboard'
 import Dashboard from './pages/Dashboard'
 import Tresorerie from './pages/Tresorerie'
 import Clients from './pages/Clients'
@@ -22,11 +24,19 @@ import PublicQuote from './pages/PublicQuote'
 import ResetPassword from './pages/ResetPassword'
 
 function Gate({ children }) {
-  const { session, business, loading } = useAuth()
+  const { session, business, loading, hasActiveAccess } = useAuth()
 
   if (loading) return <div className="loading-screen">Chargement…</div>
   if (!session) return <Login />
   if (!business) return <Onboarding />
+  if (!hasActiveAccess()) return <Subscribe />
+  return children
+}
+
+function AdminGate({ children }) {
+  const { isAdmin, loading } = useAuth()
+  if (loading) return <div className="loading-screen">Chargement…</div>
+  if (!isAdmin) return <Navigate to="/" replace />
   return children
 }
 
@@ -63,6 +73,7 @@ export default function App() {
                     <Route path="achats" element={<Achats />} />
                     <Route path="notes-de-frais" element={<NotesDeFrais />} />
                     <Route path="parametres" element={<Settings />} />
+                    <Route path="admin" element={<AdminGate><AdminDashboard /></AdminGate>} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Route>
                 </Routes>

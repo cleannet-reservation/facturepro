@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { APP_NAME } from '../lib/theme'
 
 export default function Login() {
   const [mode, setMode] = useState('signin') // 'signin' | 'signup' | 'forgot'
@@ -41,7 +42,7 @@ export default function Login() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="brand-mark">FacturePro</div>
+        <div className="brand-mark">{APP_NAME}</div>
         <h1>{titles[mode]}</h1>
         <p className="auth-sub">
           {mode === 'forgot' ? 'On t\'envoie un lien pour en choisir un nouveau.' : 'Devis, factures et acomptes en ligne — sans friction.'}

@@ -30,6 +30,9 @@ create table businesses (
   stripe_secret_key text, -- clé Stripe restreinte, stockée côté serveur uniquement (voir note sécurité en bas)
   sap_eligible boolean default false, -- agrément Services à la Personne (crédit d'impôt 50%)
   sap_agrement_number text,
+  stripe_webhook_secret text,
+  app_name text default 'FacturePro',
+  brand_color text default '#22D3EE',
   created_at timestamptz default now()
 );
 

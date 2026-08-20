@@ -14,6 +14,10 @@ Devis, factures et acomptes en ligne.
 - Recherche et filtres sur les listes, export CSV comptable
 - Catalogue de prestations réutilisables, fiche client enrichie
 - Attestation fiscale annuelle pour les clients éligibles au crédit d'impôt SAP
+- Trésorerie prévisionnelle (argent à venir par échéance)
+- Marque blanche : nom d'app et couleur personnalisables par déploiement
+- Abonnement mensuel des clients à la plateforme (Stripe Subscriptions) avec essai gratuit de 14 jours
+- Panneau super admin : liste des abonnés, activation/désactivation manuelle, connexion en tant que client (support)
 - Factures d'achat, notes de frais, factures récurrentes
 - Tableau de bord avec graphique de chiffre d'affaires et statuts cliquables
 
@@ -27,6 +31,9 @@ Dans Supabase → **SQL Editor** :
 4. `supabase/migration_logo_storage.sql`
 5. `supabase/migration_relances.sql`
 6. `supabase/migration_stripe_cle_directe.sql`
+7. `supabase/migration_catalogue_prestations.sql`
+8. `supabase/migration_marque_blanche.sql`
+9. `supabase/migration_abonnement_admin.sql`
 
 ## Variables d'environnement (Vercel → Settings → Environment Variables)
 
@@ -86,6 +93,42 @@ Sans ce webhook, tout continue de fonctionner — tu devras juste cliquer manuel
 ## Logo entreprise
 
 Va dans **Paramètres** dans l'app une fois connecté → upload ton logo (PNG/JPG). Il apparaît automatiquement sur tes PDF et sur la page de consultation publique des devis.
+
+## Abonnement plateforme et super admin
+
+FacturePro devient une vraie SaaS multi-clients : chaque entreprise qui s'inscrit a 14 jours d'essai gratuit, puis doit s'abonner (9,90€/mois par défaut, modifiable) pour continuer à utiliser l'app. Toi (ou toute personne que tu ajoutes) peux gérer tous les abonnés depuis un panneau "Super admin".
+
+### Configuration côté Stripe (une seule fois)
+
+1. Va sur [dashboard.stripe.com](https://dashboard.stripe.com) → **Product catalog** (ou "Catalogue de produits")
+2. **+ Add product** → nom "Abonnement FacturePro" → coche **Recurring** (récurrent) → prix mensuel de ton choix (ex. 9,90€) → **Save**
+3. Une fois créé, clique sur le produit → copie l'**ID du tarif** (commence par `price_...`) → colle-le dans `STRIPE_PRICE_ID` sur Vercel
+4. Crée un **nouveau webhook** (comme pour les autres) :
+   - URL : `https://TON-SITE.vercel.app/api/platform-webhook`
+   - Périmètre : "Votre compte"
+   - Événements à écouter : `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.deleted`
+5. Copie son Signing secret → colle-le dans `STRIPE_PLATFORM_WEBHOOK_SECRET` sur Vercel
+6. Redéploie
+
+### Te déclarer toi-même comme super admin
+
+1. Supabase → **Authentication** → **Users** → clique sur ta ligne → copie le **User UID**
+2. **SQL Editor** → nouvelle requête :
+   ```sql
+   insert into platform_admins (user_id) values ('COLLE-TON-USER-UID-ICI');
+   ```
+3. **Run**
+4. Reconnecte-toi sur FacturePro — un lien **"Super admin"** apparaît maintenant dans ton menu
+
+### Ce que voit un nouveau client
+
+Dès son inscription, il a 14 jours d'accès complet gratuit. Une fois l'essai terminé, l'app affiche un écran "Active ton abonnement" avec le prix et un bouton qui l'envoie sur Stripe Checkout. Une fois payé, l'accès est débloqué automatiquement (le webhook s'en charge).
+
+### Panneau Super admin
+
+Sur `/admin` : liste de toutes les entreprises inscrites, leur statut (essai / actif / impayé / résilié), un interrupteur pour bloquer/débloquer manuellement l'accès de n'importe qui (utile en cas de litige), et un bouton "Se connecter" qui génère un lien de connexion magique vers le compte du client (pratique pour du support — à ouvrir dans une fenêtre de navigation privée pour ne pas remplacer ta propre session).
+
+**Sécurité** : toutes les fonctions admin vérifient que le compte appelant est bien dans la table `platform_admins` avant de répondre quoi que ce soit — un utilisateur normal ne peut jamais voir les données d'un autre.
 
 ## Stack technique
 

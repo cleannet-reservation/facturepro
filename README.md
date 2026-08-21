@@ -1,6 +1,6 @@
 # FacturePro
 
-Devis, factures et acomptes en ligne.
+Devis, factures et acomptes en ligne — SaaS multi-clients avec abonnement.
 
 ## Fonctionnalités
 
@@ -9,7 +9,7 @@ Devis, factures et acomptes en ligne.
 - Envoi du devis par email au client (Brevo) avec page de consultation publique et acceptation en ligne
 - Envoi de facture par email avec PDF en pièce jointe
 - Statut "en retard" automatique + relances par email (manuelles ou automatiques une fois par jour)
-- Paiement d'acompte ou paiement complet via lien Stripe, confirmé **automatiquement** par webhook (plus besoin de cocher "reçu" à la main)
+- Paiement d'acompte ou paiement complet via lien Stripe, confirmé automatiquement par webhook
 - Duplication de devis/factures existants
 - Recherche et filtres sur les listes, export CSV comptable
 - Catalogue de prestations réutilisables, fiche client enrichie
@@ -21,115 +21,95 @@ Devis, factures et acomptes en ligne.
 - Factures d'achat, notes de frais, factures récurrentes
 - Tableau de bord avec graphique de chiffre d'affaires et statuts cliquables
 
-## Migrations SQL à exécuter (dans l'ordre, si pas déjà fait)
+## Installation complète (projet neuf)
 
-Dans Supabase → **SQL Editor** :
+### 1. Créer le projet Supabase
 
-1. `supabase/schema.sql` — uniquement si tu pars d'un projet Supabase vide
-2. `supabase/migration_acompte_credit_impot.sql`
-3. `supabase/migration_achats_frais_recurrentes.sql`
-4. `supabase/migration_logo_storage.sql`
-5. `supabase/migration_relances.sql`
-6. `supabase/migration_stripe_cle_directe.sql`
-7. `supabase/migration_catalogue_prestations.sql`
-8. `supabase/migration_marque_blanche.sql`
-9. `supabase/migration_abonnement_admin.sql`
+1. [supabase.com](https://supabase.com) → **New Project** → nom, mot de passe, région Europe
+2. **SQL Editor** → **New query** → colle tout le contenu de `supabase/schema.sql` → **Run**
 
-## Variables d'environnement (Vercel → Settings → Environment Variables)
+### 2. Récupérer tes clés Supabase
+
+**Project Settings → API** : Project URL, Publishable key (`sb_publishable_...`), Secret key (`sb_secret_...`)
+
+### 3. Mettre le code sur GitHub
+
+Crée un repo, uploade tout le contenu de ce dossier.
+
+### 4. Importer dans Vercel
+
+[vercel.com/new](https://vercel.com/new) → importe le repo → **avant de déployer**, ajoute toutes les variables d'environnement listées dans `.env.example` (voir sections ci-dessous pour savoir où trouver chaque valeur) → **Deploy**
+
+### 5. Premier compte
+
+Crée ton compte sur ton site → configure ton entreprise.
+
+### 6. Webhook Stripe pour tes propres paiements clients
+
+1. Stripe → **Webhooks → + Ajouter une destination**
+2. Événement : `checkout.session.completed` — Périmètre : "Votre compte"
+3. URL : `https://TON-SITE.vercel.app/api/stripe-webhook`
+4. Copie le Signing secret → `STRIPE_WEBHOOK_SECRET` sur Vercel → redéploie
+
+Ensuite, dans **Paramètres** de l'app, colle ta clé Stripe secrète (`sk_live_...`), teste-la, enregistre-la.
+
+### 7. Abonnement plateforme (pour facturer tes futurs clients)
+
+1. Stripe → **Product catalog → + Add product** → coche **Recurring** → prix mensuel (ex. 15€) → **Save**
+2. Copie l'**ID du tarif** (`price_...`) → `STRIPE_PRICE_ID` sur Vercel
+3. Nouveau webhook Stripe :
+   - URL : `https://TON-SITE.vercel.app/api/platform-webhook`
+   - Événements : `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.deleted`
+4. Copie son Signing secret → `STRIPE_PLATFORM_WEBHOOK_SECRET` sur Vercel
+5. Redéploie
+
+### 8. Te déclarer super admin
+
+1. Supabase → **Authentication → Users** → clique ta ligne → copie le **User UID**
+2. **SQL Editor** :
+   ```sql
+   insert into platform_admins (user_id) values ('COLLE-TON-USER-UID-ICI');
+   ```
+3. Reconnecte-toi — le lien **"Super admin"** apparaît dans ton menu
+
+### 9. Brevo (envoi d'email)
+
+1. Brevo → **Paramètres → Expéditeurs** → valide ton email de contact
+2. **SMTP & API → API Keys** → copie la clé → `BREVO_API_KEY` sur Vercel
+
+### 10. Vérifs finales sur Supabase
+
+**Authentication → URL Configuration** → Site URL = ton URL Vercel, Redirect URLs contient `https://TON-SITE.vercel.app/reinitialiser-mot-de-passe`
+
+## Variables d'environnement — résumé
 
 | Variable | Où la trouver |
 |---|---|
 | `VITE_SUPABASE_URL` | Supabase → Project Settings → API |
-| `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → Publishable key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → Secret keys (⚠️ jamais dans le frontend) |
+| `VITE_SUPABASE_ANON_KEY` | Supabase → Publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Secret keys |
+| `VITE_APP_NAME` | Optionnel, marque blanche |
 | `STRIPE_SECRET_KEY` | Stripe → Developers → API keys |
-| `STRIPE_WEBHOOK_SECRET` | Voir section webhook ci-dessous |
-| `BREVO_API_KEY` | Brevo → SMTP & API → API Keys |
-| `CRON_SECRET` | Une chaîne aléatoire que tu inventes toi-même (protège les relances automatiques) |
+| `STRIPE_WEBHOOK_SECRET` | Étape 6 |
+| `STRIPE_PRICE_ID` | Étape 7 |
+| `STRIPE_PLATFORM_WEBHOOK_SECRET` | Étape 7 |
+| `BREVO_API_KEY` | Brevo → SMTP & API |
+| `CRON_SECRET` | Chaîne aléatoire de ton choix |
 
-Après avoir ajouté/modifié des variables, redéploie (Vercel → Deployments → ⋯ → Redeploy).
+## Paiements par entreprise (clé Stripe directe)
+
+Chaque entreprise abonnée colle sa **propre clé Stripe secrète** dans Paramètres → Paiements en ligne, testée avant enregistrement. Pour la confirmation automatique des paiements, elle crée un webhook sur SON compte Stripe pointant vers l'URL unique affichée dans ses Paramètres (`/api/stripe-webhook?business=...`), et colle le Signing secret obtenu.
+
+**Note de sécurité avant ouverture commerciale large** : les clés Stripe sont stockées en clair en base (RLS uniquement). Envisager un chiffrement ou Stripe Connect avant une vraie mise à l'échelle.
 
 ## Relances automatiques des factures en retard
 
-Une fois par jour (8h UTC, soit 9h ou 10h en France selon l'heure d'été), Vercel exécute automatiquement `/api/send-reminders`, qui :
-1. Passe en statut "en retard" toutes les factures dont l'échéance est dépassée
-2. Envoie un email de relance à chaque facture en retard, au maximum une fois tous les 7 jours par facture (pour ne pas harceler tes clients)
+Chaque jour à 8h UTC (`vercel.json`), `/api/send-reminders` marque les factures en retard et envoie une relance email (max 1 fois/7 jours par facture).
 
-C'est déjà actif dès que le fichier `vercel.json` est déployé — rien à configurer en plus, à part `CRON_SECRET` (recommandé mais pas obligatoire) et bien sûr `BREVO_API_KEY`.
+## Panneau Super admin
 
-Tu peux aussi relancer une facture précise manuellement à tout moment, via le bouton "Relancer par email" qui apparaît sur une facture en retard.
-
-## Paiements par entreprise (clé Stripe directe, pour revendre FacturePro à d'autres)
-
-Sans configuration, tous les paiements clients arrivent sur **ton** compte Stripe (celui de `STRIPE_SECRET_KEY`) — ça ne marche que tant que tu es le seul utilisateur.
-
-Pour qu'une entreprise reçoive l'argent de ses propres clients, elle va dans **Paramètres → Paiements en ligne** dans FacturePro, et colle sa **propre clé secrète Stripe** (récupérée sur son compte Stripe personnel, gratuit à créer). Un bouton "Tester la clé" vérifie qu'elle est valide avant de l'enregistrer.
-
-**Pour que ses factures passent en "payée" automatiquement** (sans clic manuel), elle doit en plus :
-1. Copier l'URL de webhook affichée dans Paramètres (unique à son entreprise)
-2. Aller sur son compte Stripe → Webhooks → créer un endpoint avec cette URL, événement `checkout.session.completed`
-3. Copier le "Signing secret" fourni par Stripe → le coller dans Paramètres → "Enregistrer ce secret webhook"
-
-Sans cette dernière étape, tout fonctionne quand même — juste avec une confirmation manuelle ("Marquer comme reçu/soldée") au lieu d'automatique.
-
-**Note de sécurité avant d'ouvrir FacturePro à d'autres personnes payantes :** les clés Stripe des entreprises sont stockées en clair dans la base Supabase (colonne `businesses.stripe_secret_key`), protégées uniquement par le Row Level Security. C'est correct pour un usage personnel ou entre gens de confiance, mais avant une vraie ouverture commerciale, il vaudrait mieux chiffrer ces clés (ou repasser sur Stripe Connect, plus robuste mais plus complexe à mettre en place). Dis-le-moi quand tu en es là.
-
-## Configurer TON webhook Stripe (paiement automatique sur ton propre compte)
-
-1. Va sur [dashboard.stripe.com](https://dashboard.stripe.com) → **Developers → Webhooks → Add endpoint**
-2. URL du endpoint : `https://TON-SITE.vercel.app/api/stripe-webhook`
-3. Événement à écouter : `checkout.session.completed`
-4. Une fois créé, Stripe affiche une **Signing secret** (commence par `whsec_...`) → copie-la dans `STRIPE_WEBHOOK_SECRET` sur Vercel
-5. Redéploie
-
-Sans ce webhook, tout continue de fonctionner — tu devras juste cliquer manuellement sur "Marquer comme reçu" après avoir vérifié le paiement dans ton dashboard Stripe.
-
-## Configurer Brevo pour l'envoi d'email
-
-1. Sur [Brevo](https://app.brevo.com), va dans **Paramètres → Expéditeurs et IP → Expéditeurs**
-2. Ajoute et **valide** l'adresse email que tu utilises comme email de contact dans les Paramètres de FacturePro (Brevo refuse d'envoyer depuis une adresse non vérifiée)
-3. Récupère ta clé API dans **SMTP & API → API Keys** → colle-la dans `BREVO_API_KEY` sur Vercel
-
-## Logo entreprise
-
-Va dans **Paramètres** dans l'app une fois connecté → upload ton logo (PNG/JPG). Il apparaît automatiquement sur tes PDF et sur la page de consultation publique des devis.
-
-## Abonnement plateforme et super admin
-
-FacturePro devient une vraie SaaS multi-clients : chaque entreprise qui s'inscrit a 14 jours d'essai gratuit, puis doit s'abonner (9,90€/mois par défaut, modifiable) pour continuer à utiliser l'app. Toi (ou toute personne que tu ajoutes) peux gérer tous les abonnés depuis un panneau "Super admin".
-
-### Configuration côté Stripe (une seule fois)
-
-1. Va sur [dashboard.stripe.com](https://dashboard.stripe.com) → **Product catalog** (ou "Catalogue de produits")
-2. **+ Add product** → nom "Abonnement FacturePro" → coche **Recurring** (récurrent) → prix mensuel de ton choix (ex. 9,90€) → **Save**
-3. Une fois créé, clique sur le produit → copie l'**ID du tarif** (commence par `price_...`) → colle-le dans `STRIPE_PRICE_ID` sur Vercel
-4. Crée un **nouveau webhook** (comme pour les autres) :
-   - URL : `https://TON-SITE.vercel.app/api/platform-webhook`
-   - Périmètre : "Votre compte"
-   - Événements à écouter : `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.deleted`
-5. Copie son Signing secret → colle-le dans `STRIPE_PLATFORM_WEBHOOK_SECRET` sur Vercel
-6. Redéploie
-
-### Te déclarer toi-même comme super admin
-
-1. Supabase → **Authentication** → **Users** → clique sur ta ligne → copie le **User UID**
-2. **SQL Editor** → nouvelle requête :
-   ```sql
-   insert into platform_admins (user_id) values ('COLLE-TON-USER-UID-ICI');
-   ```
-3. **Run**
-4. Reconnecte-toi sur FacturePro — un lien **"Super admin"** apparaît maintenant dans ton menu
-
-### Ce que voit un nouveau client
-
-Dès son inscription, il a 14 jours d'accès complet gratuit. Une fois l'essai terminé, l'app affiche un écran "Active ton abonnement" avec le prix et un bouton qui l'envoie sur Stripe Checkout. Une fois payé, l'accès est débloqué automatiquement (le webhook s'en charge).
-
-### Panneau Super admin
-
-Sur `/admin` : liste de toutes les entreprises inscrites, leur statut (essai / actif / impayé / résilié), un interrupteur pour bloquer/débloquer manuellement l'accès de n'importe qui (utile en cas de litige), et un bouton "Se connecter" qui génère un lien de connexion magique vers le compte du client (pratique pour du support — à ouvrir dans une fenêtre de navigation privée pour ne pas remplacer ta propre session).
-
-**Sécurité** : toutes les fonctions admin vérifient que le compte appelant est bien dans la table `platform_admins` avant de répondre quoi que ce soit — un utilisateur normal ne peut jamais voir les données d'un autre.
+`/admin` : liste des entreprises, statut d'abonnement, MRR estimé, bouton pour bloquer/débloquer l'accès, bouton "Se connecter" (génère un lien magique — à ouvrir en navigation privée pour ne pas remplacer ta propre session).
 
 ## Stack technique
 
-React + Vite, Supabase (base de données + auth + RLS + storage), Stripe (paiement), Brevo (email), jsPDF (génération PDF côté client). Même famille technique que CleanNet/BookPro.
+React + Vite, Supabase (base de données + auth + RLS + storage), Stripe (paiements + abonnements), Brevo (email), jsPDF (génération PDF côté client).

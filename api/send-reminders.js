@@ -1,19 +1,8 @@
-// Fonction serverless Vercel — /api/send-reminders
-// Exécutée automatiquement une fois par jour par Vercel Cron (voir vercel.json).
-// Parcourt TOUTES les factures en retard, et envoie une relance par email
-// (pas plus d'une tous les 7 jours par facture, pour ne pas spammer le client).
-//
-// Variables d'environnement requises : SUPABASE_SERVICE_ROLE_KEY, BREVO_API_KEY
-//
-// Protection : Vercel Cron envoie l'en-tête "authorization: Bearer <CRON_SECRET>"
-// automatiquement si la variable CRON_SECRET est définie sur le projet.
-
 import { createClient } from '@supabase/supabase-js'
 
 const REMINDER_INTERVAL_DAYS = 7
 
 export default async function handler(req, res) {
-  // Vérifie que l'appel vient bien de Vercel Cron (ou d'un test manuel avec le bon secret)
   if (process.env.CRON_SECRET) {
     const auth = req.headers['authorization']
     if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -26,7 +15,6 @@ export default async function handler(req, res) {
   const results = { flagged: 0, remindersSent: 0, errors: [] }
 
   try {
-    // 1. Marquer en retard toutes les factures dont l'échéance est dépassée
     const { data: toFlag } = await supabaseAdmin
       .from('invoices')
       .select('id')
@@ -38,7 +26,6 @@ export default async function handler(req, res) {
       results.flagged = toFlag.length
     }
 
-    // 2. Relancer les factures en retard, en respectant l'intervalle minimum
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - REMINDER_INTERVAL_DAYS)
 

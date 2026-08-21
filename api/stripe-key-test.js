@@ -1,7 +1,3 @@
-// Fonction serverless Vercel — /api/stripe-key-test
-// Vérifie qu'une clé Stripe secrète est valide, sans jamais la stocker ici
-// (l'enregistrement se fait séparément, côté Supabase, depuis le frontend).
-
 import Stripe from 'stripe'
 
 export default async function handler(req, res) {

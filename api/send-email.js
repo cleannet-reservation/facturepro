@@ -1,8 +1,3 @@
-// Fonction serverless Vercel — /api/send-email
-// Envoie un email transactionnel via l'API Brevo.
-//
-// Variable d'environnement requise sur Vercel : BREVO_API_KEY
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Méthode non autorisée' })
@@ -26,7 +21,6 @@ export default async function handler(req, res) {
       htmlContent,
     }
 
-    // Pièce jointe PDF optionnelle : { name: 'facture.pdf', content: '<base64 sans préfixe>' }
     if (attachment && attachment.content && attachment.name) {
       payload.attachment = [{ name: attachment.name, content: attachment.content }]
     }

@@ -1,11 +1,3 @@
-// Fonction serverless Vercel — /api/admin-businesses
-// Renvoie la liste de toutes les entreprises avec leur statut d'abonnement.
-// Réservé aux comptes présents dans la table platform_admins.
-//
-// Le token de session Supabase du demandeur est envoyé dans l'en-tête
-// Authorization, on vérifie son identité puis son statut admin avant de
-// renvoyer quoi que ce soit.
-
 import { createClient } from '@supabase/supabase-js'
 
 export default async function handler(req, res) {
@@ -32,11 +24,16 @@ export default async function handler(req, res) {
 
     const { data: businesses, error: bizError } = await supabaseAdmin
       .from('businesses')
-      .select('id, name, email, subscription_status, trial_ends_at, access_enabled, stripe_customer_id, created_at')
+      .select('id, owner_id, name, email, subscription_status, trial_ends_at, access_enabled, stripe_customer_id, created_at')
       .order('created_at', { ascending: false })
     if (bizError) throw bizError
 
-    return res.status(200).json({ businesses })
+    const { data: allAdmins } = await supabaseAdmin.from('platform_admins').select('user_id')
+    const adminIds = new Set((allAdmins || []).map((a) => a.user_id))
+
+    const enriched = businesses.map((b) => ({ ...b, isAdminOwner: adminIds.has(b.owner_id) }))
+
+    return res.status(200).json({ businesses: enriched })
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: err.message })

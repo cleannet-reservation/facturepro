@@ -1,11 +1,3 @@
-// Fonction serverless Vercel — /api/quote-public?token=...
-// Permet à un client (sans compte) de consulter un devis via son lien public.
-// Utilise la clé service_role côté serveur uniquement pour lire les données
-// malgré le Row Level Security (qui bloque normalement l'accès anonyme).
-//
-// Variable d'environnement requise sur Vercel : SUPABASE_SERVICE_ROLE_KEY
-// (clé secrète Supabase — Project Settings → API → Secret keys)
-
 import { createClient } from '@supabase/supabase-js'
 
 export default async function handler(req, res) {

@@ -58,10 +58,6 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }
 
-  // Un abonnement est considéré actif si le statut Stripe est "active",
-  // ou si l'entreprise est encore dans sa période d'essai gratuite.
-  // Un admin a toujours accès. Le coupe-circuit manuel (access_enabled)
-  // prime sur tout le reste.
   function hasActiveAccess() {
     if (!business) return false
     if (isAdmin) return true

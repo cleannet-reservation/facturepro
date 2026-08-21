@@ -1,14 +1,3 @@
-// Fonction serverless Vercel — /api/platform-webhook
-// Reçoit les événements Stripe liés à l'abonnement des entreprises à LA
-// PLATEFORME FacturePro (paiement mensuel réussi, échoué, résiliation), et
-// met à jour subscription_status automatiquement.
-//
-// Différent de /api/stripe-webhook, qui gère les paiements que CHAQUE
-// entreprise reçoit de SES PROPRES clients.
-//
-// Variables d'environnement requises :
-//   STRIPE_SECRET_KEY, STRIPE_PLATFORM_WEBHOOK_SECRET, SUPABASE_SERVICE_ROLE_KEY
-
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 

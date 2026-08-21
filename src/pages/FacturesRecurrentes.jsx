@@ -73,7 +73,6 @@ export default function FacturesRecurrentes() {
     return d.toISOString().slice(0, 10)
   }
 
-  // Génère une facture standalone à partir du modèle, et avance sa prochaine échéance
   async function generateNow(rec) {
     setBusy(true)
     try {
@@ -140,7 +139,7 @@ export default function FacturesRecurrentes() {
       </header>
 
       <p className="muted" style={{ marginBottom: 16 }}>
-        Ces modèles ne s'envoient pas automatiquement — clique sur "Générer maintenant" quand tu veux émettre la facture du mois. On pourra automatiser complètement l'envoi plus tard si tu veux.
+        Ces modèles ne s'envoient pas automatiquement — clique sur "Générer maintenant" quand tu veux émettre la facture du mois.
       </p>
 
       {showForm && (

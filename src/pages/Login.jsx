@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { APP_NAME } from '../lib/theme'
 
 export default function Login() {
-  const [mode, setMode] = useState('signin') // 'signin' | 'signup' | 'forgot'
+  const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -45,7 +45,7 @@ export default function Login() {
         <div className="brand-mark">{APP_NAME}</div>
         <h1>{titles[mode]}</h1>
         <p className="auth-sub">
-          {mode === 'forgot' ? 'On t\'envoie un lien pour en choisir un nouveau.' : 'Devis, factures et acomptes en ligne — sans friction.'}
+          {mode === 'forgot' ? "On t'envoie un lien pour en choisir un nouveau." : 'Devis, factures et acomptes en ligne — sans friction.'}
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">

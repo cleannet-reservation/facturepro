@@ -27,12 +27,10 @@ export async function generateDocumentPDF(doc_) {
   const margin = 15
   let y = 20
 
-  // Couleurs (encre marine + accent sarcelle, cohérent avec l'identité FacturePro)
   const ink = [27, 42, 74]
   const teal = [47, 111, 94]
   const grey = [110, 105, 95]
 
-  // Logo (si configuré dans les paramètres entreprise)
   let textStartX = margin
   if (doc_.business.logo_url) {
     const dataUrl = await loadImageAsDataURL(doc_.business.logo_url)
@@ -47,7 +45,6 @@ export async function generateDocumentPDF(doc_) {
     }
   }
 
-  // En-tête : nom entreprise + titre document
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
   doc.setTextColor(...ink)
@@ -87,7 +84,6 @@ export async function generateDocumentPDF(doc_) {
 
   y += 8
 
-  // Bloc client
   doc.setDrawColor(220, 217, 208)
   doc.setFillColor(247, 244, 236)
   doc.roundedRect(margin, y, 80, 26, 1, 1, 'F')
@@ -110,7 +106,6 @@ export async function generateDocumentPDF(doc_) {
 
   y += 34
 
-  // Tableau des lignes
   const hasTva = doc_.business.tax_regime === 'assujetti'
   const head = hasTva
     ? [['Description', 'Qté', 'PU HT', 'TVA', 'Total HT']]
@@ -136,7 +131,6 @@ export async function generateDocumentPDF(doc_) {
 
   let finalY = doc.lastAutoTable.finalY + 8
 
-  // Totaux
   const totalsX = pageWidth - margin - 60
   doc.setFontSize(9)
   doc.setTextColor(...grey)
@@ -163,7 +157,6 @@ export async function generateDocumentPDF(doc_) {
     finalY += 6
   }
 
-  // Facture de solde : déduction de l'acompte déjà réglé
   if (doc_.deducted_invoice) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
@@ -187,7 +180,6 @@ export async function generateDocumentPDF(doc_) {
     finalY += 8
   }
 
-  // Mention crédit d'impôt Services à la Personne
   if (doc_.tax_credit_eligible) {
     const creditAmount = computeCreditImpot(doc_.total_ttc)
     const netCost = doc_.total_ttc - creditAmount
@@ -197,7 +189,7 @@ export async function generateDocumentPDF(doc_) {
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     doc.setTextColor(...teal)
-    doc.text('Éligible au crédit d\'impôt Services à la Personne (50%) — art. 199 sexdecies du CGI', margin + 4, finalY + 6)
+    doc.text("Éligible au crédit d'impôt Services à la Personne (50%) — art. 199 sexdecies du CGI", margin + 4, finalY + 6)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8.5)
     doc.setTextColor(...ink)
@@ -210,7 +202,6 @@ export async function generateDocumentPDF(doc_) {
     finalY += 26
   }
 
-  // Notes
   if (doc_.notes) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
@@ -218,7 +209,6 @@ export async function generateDocumentPDF(doc_) {
     doc.text(doc.splitTextToSize(doc_.notes, pageWidth - margin * 2), margin, finalY + 4)
   }
 
-  // Pied de page — mentions légales
   const pageHeight = doc.internal.pageSize.getHeight()
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
@@ -240,11 +230,10 @@ export async function downloadDocumentPDF(doc_) {
   pdf.save(`${safeType}-${doc_.number}.pdf`)
 }
 
-// Renvoie { base64, filename } — utile pour joindre le PDF à un email (Brevo)
 export async function getDocumentPDFBase64(doc_) {
   const pdf = await generateDocumentPDF(doc_)
   const safeType = doc_.type.replace(/[^a-zA-Z0-9]+/g, '-')
-  const dataUri = pdf.output('datauristring') // "data:application/pdf;filename=...;base64,XXXX"
+  const dataUri = pdf.output('datauristring')
   const base64 = dataUri.split(',')[1]
   return { base64, filename: `${safeType}-${doc_.number}.pdf` }
 }
@@ -355,7 +344,6 @@ export async function generateAttestationPDF(data) {
   doc.text(legalLines, margin, y)
   y += legalLines.length * 4.5 + 10
 
-  // Détail des factures concernées
   if (data.invoices && data.invoices.length > 0) {
     autoTable(doc, {
       startY: y,

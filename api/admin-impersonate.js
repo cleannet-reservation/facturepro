@@ -1,13 +1,3 @@
-// Fonction serverless Vercel — /api/admin-impersonate
-// Génère un lien de connexion magique vers le compte d'une entreprise, pour
-// que l'admin puisse consulter/aider sans connaître son mot de passe.
-// Réservé aux super admins.
-//
-// ⚠️ Ouvre ce lien dans une fenêtre de navigation privée / un autre
-// navigateur : l'ouvrir dans le même onglet remplacerait TA session admin
-// par celle du client (les sessions Supabase sont stockées par navigateur,
-// pas par onglet).
-
 import { createClient } from '@supabase/supabase-js'
 
 export default async function handler(req, res) {

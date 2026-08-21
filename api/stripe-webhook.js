@@ -1,22 +1,3 @@
-// Fonction serverless Vercel — /api/stripe-webhook?business=<business_id>
-// Reçoit les événements Stripe (paiement d'acompte/facture confirmé) et met
-// à jour automatiquement la facture correspondante dans Supabase, sans
-// intervention manuelle.
-//
-// Deux cas de figure :
-// - Webhook sur TON compte Stripe (celui de la plateforme) : vérifié avec
-//   STRIPE_WEBHOOK_SECRET, pas de paramètre ?business= dans l'URL.
-// - Webhook sur le compte Stripe PERSONNEL d'une entreprise (Paramètres →
-//   Paiements en ligne) : vérifié avec le secret propre à cette entreprise
-//   (stripe_webhook_secret en base), identifiée via ?business=<id> dans l'URL.
-//
-// Variables d'environnement requises sur Vercel :
-//   STRIPE_WEBHOOK_SECRET      (webhook sur ton propre compte)
-//   SUPABASE_SERVICE_ROLE_KEY  (clé secrète Supabase, jamais exposée au frontend)
-//
-// IMPORTANT : cette fonction a besoin du corps brut (non parsé) de la requête
-// pour vérifier la signature Stripe — d'où bodyParser: false ci-dessous.
-
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 
@@ -43,7 +24,6 @@ export default async function handler(req, res) {
   const businessId = req.query.business
   const supabaseAdmin = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
-  // Détermine quel secret utiliser pour vérifier la signature
   let webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
   if (businessId) {
     const { data: business } = await supabaseAdmin

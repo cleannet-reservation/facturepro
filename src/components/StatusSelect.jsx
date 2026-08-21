@@ -1,7 +1,5 @@
 import { STATUS_LABELS } from '../lib/calc'
 
-// Même rendu visuel que StatusStamp, mais cliquable : un <select> transparent
-// superposé au tampon, pour changer le statut en un clic sans ouvrir le document.
 export default function StatusSelect({ status, options, onChange, disabled }) {
   return (
     <span className={`stamp stamp-${status} stamp-select`}>

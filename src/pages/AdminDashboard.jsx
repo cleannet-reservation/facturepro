@@ -85,10 +85,10 @@ export default function AdminDashboard() {
 
   if (!businesses) return <p>Chargement…</p>
 
-  const activeCount = businesses.filter((b) => b.subscription_status === 'active').length
-  const pastDueCount = businesses.filter((b) => b.subscription_status === 'past_due').length
-  const trialCount = businesses.filter((b) => b.subscription_status === 'trial').length
-  const mrr = activeCount * 9.9
+  const activeCount = businesses.filter((b) => !b.isAdminOwner && b.subscription_status === 'active').length
+  const pastDueCount = businesses.filter((b) => !b.isAdminOwner && b.subscription_status === 'past_due').length
+  const trialCount = businesses.filter((b) => !b.isAdminOwner && b.subscription_status === 'trial').length
+  const mrr = activeCount * 15
 
   return (
     <div>
@@ -140,10 +140,16 @@ export default function AdminDashboard() {
               return (
                 <tr key={b.id}>
                   <td>{b.name}<div className="muted">{b.email}</div></td>
-                  <td><span className={`stamp ${meta.class}`}>{meta.label}</span></td>
-                  <td>{b.trial_ends_at ? formatDate(b.trial_ends_at) : '—'}</td>
                   <td>
-                    <button className="btn-secondary" disabled={busyId === b.id} onClick={() => toggleAccess(b.id, b.access_enabled)}>
+                    {b.isAdminOwner ? (
+                      <span className="stamp stamp-accepted">Admin — accès illimité</span>
+                    ) : (
+                      <span className={`stamp ${meta.class}`}>{meta.label}</span>
+                    )}
+                  </td>
+                  <td>{b.isAdminOwner ? '—' : (b.trial_ends_at ? formatDate(b.trial_ends_at) : '—')}</td>
+                  <td>
+                    <button className="btn-secondary" disabled={busyId === b.id || b.isAdminOwner} onClick={() => toggleAccess(b.id, b.access_enabled)}>
                       {b.access_enabled ? 'Actif' : 'Bloqué'}
                     </button>
                   </td>

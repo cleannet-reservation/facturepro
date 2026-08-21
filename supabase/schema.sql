@@ -1,14 +1,11 @@
 -- ============================================================
--- FacturePro — Schéma Supabase (Phase 1)
--- À exécuter dans l'éditeur SQL de ton nouveau projet Supabase
+-- FacturePro — Schéma Supabase complet (tout-en-un)
 -- ============================================================
 
--- Extension pour les UUID
 create extension if not exists "pgcrypto";
 
 -- ------------------------------------------------------------
--- 1. Entreprises (une seule ligne pour toi en Phase 1,
---    mais structure déjà prête pour du multi-tenant plus tard)
+-- 1. Entreprises
 -- ------------------------------------------------------------
 create table businesses (
   id uuid primary key default gen_random_uuid(),
@@ -27,12 +24,17 @@ create table businesses (
   payment_terms text default '30 jours',
   quote_next_number int default 1,
   invoice_next_number int default 1,
-  stripe_secret_key text, -- clé Stripe restreinte, stockée côté serveur uniquement (voir note sécurité en bas)
-  sap_eligible boolean default false, -- agrément Services à la Personne (crédit d'impôt 50%)
-  sap_agrement_number text,
+  stripe_secret_key text,
   stripe_webhook_secret text,
+  sap_eligible boolean default false,
+  sap_agrement_number text,
   app_name text default 'FacturePro',
   brand_color text default '#22D3EE',
+  subscription_status text default 'trial' check (subscription_status in ('trial', 'active', 'past_due', 'canceled')),
+  trial_ends_at timestamptz default (now() + interval '14 days'),
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  access_enabled boolean default true,
   created_at timestamptz default now()
 );
 
@@ -69,8 +71,8 @@ create table quotes (
   notes text,
   accepted_at timestamptz,
   accepted_by_name text,
-  tax_credit_eligible boolean default false, -- client particulier éligible au crédit d'impôt 50%
-  public_token uuid default gen_random_uuid(), -- pour le lien de consultation client
+  tax_credit_eligible boolean default false,
+  public_token uuid default gen_random_uuid(),
   created_at timestamptz default now()
 );
 
@@ -106,6 +108,8 @@ create table invoices (
   stripe_payment_link_url text,
   notes text,
   public_token uuid default gen_random_uuid(),
+  last_reminder_sent_at timestamptz,
+  reminder_count int default 0,
   created_at timestamptz default now()
 );
 
@@ -129,45 +133,7 @@ create table payments (
 );
 
 -- ------------------------------------------------------------
--- 5. Row Level Security — chaque utilisateur ne voit que ses données
--- ------------------------------------------------------------
-alter table businesses enable row level security;
-alter table clients enable row level security;
-alter table quotes enable row level security;
-alter table quote_items enable row level security;
-alter table invoices enable row level security;
-alter table invoice_items enable row level security;
-alter table payments enable row level security;
-
-create policy "Owner accède à sa business" on businesses
-  for all using (owner_id = auth.uid());
-
-create policy "Owner accède à ses clients" on clients
-  for all using (business_id in (select id from businesses where owner_id = auth.uid()));
-
-create policy "Owner accède à ses devis" on quotes
-  for all using (business_id in (select id from businesses where owner_id = auth.uid()));
-
-create policy "Owner accède aux lignes de devis" on quote_items
-  for all using (quote_id in (
-    select id from quotes where business_id in (select id from businesses where owner_id = auth.uid())
-  ));
-
-create policy "Owner accède à ses factures" on invoices
-  for all using (business_id in (select id from businesses where owner_id = auth.uid()));
-
-create policy "Owner accède aux lignes de facture" on invoice_items
-  for all using (invoice_id in (
-    select id from invoices where business_id in (select id from businesses where owner_id = auth.uid())
-  ));
-
-create policy "Owner accède aux paiements" on payments
-  for all using (invoice_id in (
-    select id from invoices where business_id in (select id from businesses where owner_id = auth.uid())
-  ));
-
--- ------------------------------------------------------------
--- 5bis. Catalogue de prestations
+-- 5. Catalogue de prestations
 -- ------------------------------------------------------------
 create table services (
   id uuid primary key default gen_random_uuid(),
@@ -177,10 +143,6 @@ create table services (
   tva_rate numeric(4,2) not null default 20,
   created_at timestamptz default now()
 );
-
-alter table services enable row level security;
-create policy "Owner accède à son catalogue" on services
-  for all using (business_id in (select id from businesses where owner_id = auth.uid()));
 
 -- ------------------------------------------------------------
 -- 6. Factures d'achat, notes de frais, factures récurrentes
@@ -223,9 +185,59 @@ create table recurring_invoices (
   created_at timestamptz default now()
 );
 
+-- ------------------------------------------------------------
+-- 7. Super admin plateforme
+-- ------------------------------------------------------------
+create table platform_admins (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz default now()
+);
+
+-- ------------------------------------------------------------
+-- 8. Row Level Security
+-- ------------------------------------------------------------
+alter table businesses enable row level security;
+alter table clients enable row level security;
+alter table quotes enable row level security;
+alter table quote_items enable row level security;
+alter table invoices enable row level security;
+alter table invoice_items enable row level security;
+alter table payments enable row level security;
+alter table services enable row level security;
 alter table purchases enable row level security;
 alter table expenses enable row level security;
 alter table recurring_invoices enable row level security;
+alter table platform_admins enable row level security;
+
+create policy "Owner accède à sa business" on businesses
+  for all using (owner_id = auth.uid());
+
+create policy "Owner accède à ses clients" on clients
+  for all using (business_id in (select id from businesses where owner_id = auth.uid()));
+
+create policy "Owner accède à ses devis" on quotes
+  for all using (business_id in (select id from businesses where owner_id = auth.uid()));
+
+create policy "Owner accède aux lignes de devis" on quote_items
+  for all using (quote_id in (
+    select id from quotes where business_id in (select id from businesses where owner_id = auth.uid())
+  ));
+
+create policy "Owner accède à ses factures" on invoices
+  for all using (business_id in (select id from businesses where owner_id = auth.uid()));
+
+create policy "Owner accède aux lignes de facture" on invoice_items
+  for all using (invoice_id in (
+    select id from invoices where business_id in (select id from businesses where owner_id = auth.uid())
+  ));
+
+create policy "Owner accède aux paiements" on payments
+  for all using (invoice_id in (
+    select id from invoices where business_id in (select id from businesses where owner_id = auth.uid())
+  ));
+
+create policy "Owner accède à son catalogue" on services
+  for all using (business_id in (select id from businesses where owner_id = auth.uid()));
 
 create policy "Owner accède à ses achats" on purchases
   for all using (business_id in (select id from businesses where owner_id = auth.uid()));
@@ -236,10 +248,40 @@ create policy "Owner accède à ses notes de frais" on expenses
 create policy "Owner accède à ses factures récurrentes" on recurring_invoices
   for all using (business_id in (select id from businesses where owner_id = auth.uid()));
 
+create policy "Un utilisateur vérifie son propre statut admin" on platform_admins
+  for select using (user_id = auth.uid());
+
+-- ------------------------------------------------------------
+-- 9. Stockage du logo
+-- ------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('logos', 'logos', true)
+on conflict (id) do nothing;
+
+create policy "Owner upload son logo"
+on storage.objects for insert
+with check (bucket_id = 'logos' and auth.uid()::text = (storage.foldername(name))[1]);
+
+create policy "Owner met à jour son logo"
+on storage.objects for update
+using (bucket_id = 'logos' and auth.uid()::text = (storage.foldername(name))[1]);
+
+create policy "Owner supprime son logo"
+on storage.objects for delete
+using (bucket_id = 'logos' and auth.uid()::text = (storage.foldername(name))[1]);
+
+create policy "Logos visibles publiquement"
+on storage.objects for select
+using (bucket_id = 'logos');
+
 -- ------------------------------------------------------------
 -- NOTE SÉCURITÉ IMPORTANTE :
 -- La colonne businesses.stripe_secret_key ne doit JAMAIS être lue
--- depuis le frontend. Elle sera utilisée uniquement par une fonction
--- serverless (Vercel API route) pour créer les liens de paiement.
--- On la mettra en place à la Phase 4 (intégration Stripe).
+-- depuis le frontend directement — elle n'est utilisée que côté
+-- serveur (fonctions api/) via la clé de service Supabase.
+--
+-- DERNIÈRE ÉTAPE APRÈS AVOIR LANCÉ CE SCRIPT :
+-- déclare-toi super admin en remplaçant TON_USER_ID ci-dessous par
+-- ton identifiant (Authentication → Users → copie le "User UID") :
+-- insert into platform_admins (user_id) values ('TON_USER_ID');
 -- ------------------------------------------------------------

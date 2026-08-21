@@ -1,7 +1,3 @@
-// Fonction serverless Vercel — /api/admin-toggle-access
-// Active ou désactive manuellement l'accès d'une entreprise à l'app,
-// indépendamment de son statut d'abonnement Stripe. Réservé aux super admins.
-
 import { createClient } from '@supabase/supabase-js'
 
 export default async function handler(req, res) {

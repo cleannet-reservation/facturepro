@@ -1,14 +1,3 @@
-// Fonction serverless Vercel — /api/create-payment-link
-// Crée un lien de paiement Stripe pour un acompte (ou solde) de facture.
-//
-// Si l'entreprise a renseigné sa propre clé Stripe secrète (Paramètres →
-// Paiements en ligne), le lien est créé sur SON compte Stripe : l'argent du
-// client va directement chez elle.
-// Sinon (aucune clé personnelle renseignée), on utilise la clé Stripe de la
-// plateforme (STRIPE_SECRET_KEY) — c'est le comportement par défaut pour toi.
-//
-// Variables d'environnement requises : STRIPE_SECRET_KEY, SUPABASE_SERVICE_ROLE_KEY
-
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 
@@ -24,7 +13,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Cherche si la facture appartient à une entreprise avec sa propre clé Stripe
     let stripeSecretKey = process.env.STRIPE_SECRET_KEY
     let usingOwnKey = false
 
@@ -46,7 +34,7 @@ export default async function handler(req, res) {
 
     const price = await stripe.prices.create({
       currency: 'eur',
-      unit_amount: Math.round(amount * 100), // Stripe attend des centimes
+      unit_amount: Math.round(amount * 100),
       product_data: {
         name: description || `Facture ${invoiceNumber}`,
       },

@@ -50,7 +50,7 @@ export default function Settings() {
         if (uploadError) throw uploadError
 
         const { data: publicUrlData } = supabase.storage.from('logos').getPublicUrl(path)
-        logoUrl = `${publicUrlData.publicUrl}?t=${Date.now()}` // cache-bust
+        logoUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`
       }
 
       const { error: updateError } = await supabase

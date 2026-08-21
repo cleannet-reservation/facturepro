@@ -1,5 +1,3 @@
-// Calcule les totaux HT / TVA / TTC à partir d'une liste de lignes
-// items: [{ quantity, unit_price, tva_rate }]
 export function computeTotals(items, taxRegime) {
   let subtotalHT = 0
   let tvaAmount = 0
@@ -34,9 +32,6 @@ export function formatDate(d) {
   return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(d))
 }
 
-// Crédit d'impôt Services à la Personne : 50% du montant TTC, plafonné
-// légalement selon la nature du service (le plafond n'est pas vérifié ici,
-// c'est au client de le suivre sur sa déclaration de revenus).
 export function computeCreditImpot(totalTTC) {
   return round2(totalTTC * 0.5)
 }
@@ -61,8 +56,6 @@ export const STATUS_LABELS = {
 export const QUOTE_STATUS_OPTIONS = ['draft', 'sent', 'accepted', 'refused', 'expired']
 export const INVOICE_STATUS_OPTIONS = ['draft', 'sent', 'partially_paid', 'paid', 'overdue']
 
-// Une facture est "en retard" si sa date d'échéance est dépassée et qu'elle
-// n'est ni payée ni encore au stade brouillon.
 export function isOverdue(invoice) {
   if (!invoice.due_date) return false
   if (['paid', 'draft', 'overdue'].includes(invoice.status)) return false

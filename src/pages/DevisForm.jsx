@@ -140,6 +140,7 @@ export default function DevisForm() {
         </div>
 
         <h2 className="section-title">Prestations</h2>
+
         <table className="items-table">
           <thead>
             <tr>

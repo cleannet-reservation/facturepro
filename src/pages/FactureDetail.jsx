@@ -48,6 +48,35 @@ export default function FactureDetail() {
     }
   }
 
+  function buildPdfDoc() {
+    const pdfTypeLabel = {
+      acompte: "FACTURE D'ACOMPTE",
+      solde: 'FACTURE DE SOLDE',
+      standalone: 'FACTURE',
+    }[invoice.invoice_type] || 'FACTURE'
+
+    return {
+      type: pdfTypeLabel,
+      number: invoice.number,
+      issue_date: invoice.issue_date,
+      due_date: invoice.due_date,
+      business,
+      client,
+      items,
+      subtotal_ht: invoice.subtotal_ht,
+      tva_amount: invoice.tva_amount,
+      total_ttc: invoice.total_ttc,
+      deposit_requested: invoice.invoice_type === 'standalone' ? invoice.deposit_requested : 0,
+      deducted_invoice: deductedInvoice,
+      tax_credit_eligible: invoice.tax_credit_eligible,
+      notes: invoice.notes,
+    }
+  }
+
+  async function handleDownloadPDF() {
+    await downloadDocumentPDF(buildPdfDoc())
+  }
+
   async function handleDuplicate() {
     setBusy(true)
     try {
@@ -90,35 +119,6 @@ export default function FactureDetail() {
     } finally {
       setBusy(false)
     }
-  }
-
-  function buildPdfDoc() {
-    const pdfTypeLabel = {
-      acompte: "FACTURE D'ACOMPTE",
-      solde: 'FACTURE DE SOLDE',
-      standalone: 'FACTURE',
-    }[invoice.invoice_type] || 'FACTURE'
-
-    return {
-      type: pdfTypeLabel,
-      number: invoice.number,
-      issue_date: invoice.issue_date,
-      due_date: invoice.due_date,
-      business,
-      client,
-      items,
-      subtotal_ht: invoice.subtotal_ht,
-      tva_amount: invoice.tva_amount,
-      total_ttc: invoice.total_ttc,
-      deposit_requested: invoice.invoice_type === 'standalone' ? invoice.deposit_requested : 0,
-      deducted_invoice: deductedInvoice,
-      tax_credit_eligible: invoice.tax_credit_eligible,
-      notes: invoice.notes,
-    }
-  }
-
-  async function handleDownloadPDF() {
-    await downloadDocumentPDF(buildPdfDoc())
   }
 
   async function handleSendEmail(isReminder = false) {
@@ -308,8 +308,36 @@ export default function FactureDetail() {
         )}
       </section>
 
+      <section className="panel action-row">
+        <button className="btn-secondary" onClick={handleDownloadPDF}>Télécharger le PDF</button>
+        <button className="btn-secondary" disabled={busy} onClick={handleDuplicate}>Dupliquer</button>
+        <button className="btn-secondary" disabled={sendingEmail} onClick={() => handleSendEmail(false)}>
+          {sendingEmail ? 'Envoi…' : 'Envoyer par email'}
+        </button>
+        {invoice.status === 'overdue' && (
+          <button className="btn-primary" disabled={sendingEmail} onClick={() => handleSendEmail(true)}>
+            {sendingEmail ? 'Envoi…' : 'Relancer par email'}
+          </button>
+        )}
+      </section>
+
+      {invoice.last_reminder_sent_at && (
+        <section className="panel">
+          <p className="muted" style={{ margin: 0 }}>
+            Dernière relance envoyée le {formatDate(invoice.last_reminder_sent_at)}
+            {invoice.reminder_count > 1 ? ` (${invoice.reminder_count} relances au total)` : ''}.
+          </p>
+        </section>
+      )}
+
+      {emailStatus && (
+        <section className="panel">
+          <p className={emailStatus.startsWith('Erreur') ? 'form-error' : 'form-info'} style={{ margin: 0 }}>{emailStatus}</p>
+        </section>
+      )}
+
       <section className="panel">
-        <h2 className="section-title">Paiement de la facture en ligne</h2>
+        <h2 className="section-title" style={{ marginTop: 0 }}>Paiement de la facture en ligne</h2>
         {invoice.status === 'paid' ? (
           <p className="empty-state">Facture entièrement réglée.</p>
         ) : (
@@ -378,34 +406,6 @@ export default function FactureDetail() {
               <button className="btn-primary" disabled={busy} onClick={markFullyPaid}>Marquer la facture comme soldée</button>
             </div>
           )}
-        </section>
-      )}
-
-      <section className="panel action-row">
-        <button className="btn-secondary" onClick={handleDownloadPDF}>Télécharger le PDF</button>
-        <button className="btn-secondary" disabled={busy} onClick={handleDuplicate}>Dupliquer</button>
-        <button className="btn-secondary" disabled={sendingEmail} onClick={() => handleSendEmail(false)}>
-          {sendingEmail ? 'Envoi…' : 'Envoyer par email'}
-        </button>
-        {invoice.status === 'overdue' && (
-          <button className="btn-primary" disabled={sendingEmail} onClick={() => handleSendEmail(true)}>
-            {sendingEmail ? 'Envoi…' : 'Relancer par email'}
-          </button>
-        )}
-      </section>
-
-      {invoice.last_reminder_sent_at && (
-        <section className="panel">
-          <p className="muted" style={{ margin: 0 }}>
-            Dernière relance envoyée le {formatDate(invoice.last_reminder_sent_at)}
-            {invoice.reminder_count > 1 ? ` (${invoice.reminder_count} relances au total)` : ''}.
-          </p>
-        </section>
-      )}
-
-      {emailStatus && (
-        <section className="panel">
-          <p className={emailStatus.startsWith('Erreur') ? 'form-error' : 'form-info'} style={{ margin: 0 }}>{emailStatus}</p>
         </section>
       )}
     </div>

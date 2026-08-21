@@ -47,7 +47,6 @@ export default function Dashboard() {
     setChartData(buildMonthlyRevenue(invoices || []))
   }
 
-  // Regroupe le CA (factures payées) des 6 derniers mois
   function buildMonthlyRevenue(invoices) {
     const months = []
     const now = new Date()

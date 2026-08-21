@@ -1,9 +1,3 @@
-/* ============================================================
-   FacturePro — Design system (thème sombre, aligné sur BookPro)
-   Fond marine profond, accent cyan vif, cartes légèrement
-   surélevées, validations en vert, chiffres en monospace.
-   ============================================================ */
-
 :root {
   --bg: #0B1220;
   --bg-elevated: #111A2E;
@@ -57,7 +51,6 @@ button, input, select, textarea {
 
 a { color: var(--cyan); }
 
-/* ---------- Auth pages ---------- */
 .auth-page {
   min-height: 100vh;
   display: flex;
@@ -230,7 +223,6 @@ fieldset legend {
   font-size: 13px;
 }
 
-/* ---------- App shell ---------- */
 .app-shell {
   display: grid;
   grid-template-columns: 220px 1fr;
@@ -303,7 +295,6 @@ fieldset legend {
   margin: 24px 0 12px;
 }
 
-/* ---------- Panels & tables ---------- */
 .panel {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -362,7 +353,6 @@ fieldset legend {
   max-width: 260px;
 }
 
-/* ---------- Stat cards ---------- */
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -400,7 +390,6 @@ fieldset legend {
   color: var(--white);
 }
 
-/* ---------- Totals box ---------- */
 .totals-box {
   margin-top: 16px;
   display: flex;
@@ -428,7 +417,6 @@ fieldset legend {
   margin-top: 4px;
 }
 
-/* ---------- Document detail ---------- */
 .doc-summary {
   display: flex;
   justify-content: space-between;
@@ -467,7 +455,6 @@ fieldset legend {
   color: var(--text-secondary);
 }
 
-/* ---------- Signature element : le tampon de statut ---------- */
 .stamp {
   display: inline-flex;
   align-items: center;
@@ -525,7 +512,6 @@ fieldset legend {
   background: var(--bg);
 }
 
-/* ---------- Responsive ---------- */
 @media (max-width: 780px) {
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { flex-direction: row; align-items: center; padding: 14px 18px; }
@@ -539,7 +525,6 @@ fieldset legend {
   .doc-meta { text-align: left; }
 }
 
-/* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }

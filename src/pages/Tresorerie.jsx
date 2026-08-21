@@ -37,7 +37,6 @@ export default function Tresorerie() {
     setRecurringTotal((recurring || []).reduce((sum, r) => sum + Number(r.amount), 0))
   }
 
-  // Regroupe le montant restant dû par mois d'échéance (retard + 6 mois à venir)
   function buildForecast(invoices) {
     const now = new Date()
     const months = [{ key: 'retard', label: 'En retard', total: 0, isOverdue: true }]
@@ -59,7 +58,6 @@ export default function Tresorerie() {
       const month = months.find((m) => m.key === key)
       if (month) month.total += remaining
       else if (d < now) months[0].total += remaining
-      // Au-delà de 6 mois : non affiché sur le graphique, mais reste dans le tableau détaillé
     })
 
     return months

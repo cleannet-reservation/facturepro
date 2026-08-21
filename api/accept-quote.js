@@ -1,8 +1,3 @@
-// Fonction serverless Vercel — /api/accept-quote
-// Permet à un client (sans compte) d'accepter un devis via son lien public.
-//
-// Variable d'environnement requise sur Vercel : SUPABASE_SERVICE_ROLE_KEY
-
 import { createClient } from '@supabase/supabase-js'
 
 export default async function handler(req, res) {

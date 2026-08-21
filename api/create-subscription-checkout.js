@@ -1,14 +1,3 @@
-// Fonction serverless Vercel — /api/create-subscription-checkout
-// Crée une session Stripe Checkout en mode abonnement (prélèvement mensuel
-// récurrent), pour l'abonnement de l'entreprise à la plateforme FacturePro
-// elle-même (différent des liens de paiement que l'entreprise envoie à SES
-// propres clients, qui utilisent la clé Stripe de l'entreprise).
-//
-// Variables d'environnement requises :
-//   STRIPE_SECRET_KEY   (clé de LA PLATEFORME, celle de FacturePro)
-//   STRIPE_PRICE_ID     (l'ID du tarif mensuel créé sur Stripe, voir README)
-//   SUPABASE_SERVICE_ROLE_KEY
-
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 

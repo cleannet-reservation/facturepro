@@ -158,8 +158,6 @@ export default function DevisDetail() {
     })
   }
 
-  // Crée une facture d'acompte, une facture de solde, ou une facture complète standalone.
-  // type: 'acompte' | 'solde' | 'standalone'
   async function createInvoice(type, depositAmount) {
     setBusy(true)
     try {

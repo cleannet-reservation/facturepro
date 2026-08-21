@@ -1,7 +1,3 @@
-// Applique la couleur d'accent choisie par l'entreprise à toute l'app,
-// en dérivant automatiquement une variante plus sombre (survol des boutons)
-// et une variante douce/transparente (fonds, badges).
-
 function hexToRgb(hex) {
   const clean = hex.replace('#', '')
   const bigint = parseInt(clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean, 16)
@@ -21,8 +17,4 @@ export function applyBrandColor(hex) {
   root.setProperty('--cyan-soft', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.12)`)
 }
 
-// Nom affiché avant connexion (pages Login/Onboarding/ResetPassword, où on
-// n'a pas encore chargé l'entreprise). Réglable une fois par déploiement via
-// la variable d'environnement VITE_APP_NAME sur Vercel — pratique en marque
-// blanche puisque chaque client a son propre déploiement séparé.
 export const APP_NAME = import.meta.env.VITE_APP_NAME || 'FacturePro'

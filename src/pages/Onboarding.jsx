@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { APP_NAME } from '../lib/theme'
 
 export default function Onboarding() {
-  const { session, refreshBusiness } = useAuth()
+  const { session, refreshBusiness, signOut } = useAuth()
   const [form, setForm] = useState({
     name: '',
     siret: '',
@@ -49,6 +49,7 @@ export default function Onboarding() {
         <div className="brand-mark">{APP_NAME}</div>
         <h1>Configure ton entreprise</h1>
         <p className="auth-sub">Ces informations apparaîtront sur tous tes devis et factures.</p>
+        <button type="button" className="link-btn" onClick={signOut}>Se déconnecter</button>
 
         <form onSubmit={handleSubmit} className="auth-form grid-2">
           <label>

@@ -13,12 +13,9 @@ export default function ResetPassword() {
   const [done, setDone] = useState(false)
 
   useEffect(() => {
-    // Supabase place l'utilisateur dans une session temporaire "recovery"
-    // après qu'il ait cliqué sur le lien reçu par email.
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setReady(true)
     })
-    // Si l'événement a déjà eu lieu avant que ce composant ne s'abonne
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) setReady(true)
     })

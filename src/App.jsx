@@ -45,13 +45,9 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Route publique : consultation d'un devis par le client, sans compte */}
           <Route path="/consultation/devis/:token" element={<PublicQuote />} />
-
-          {/* Route publique : réinitialisation du mot de passe via le lien reçu par email */}
           <Route path="/reinitialiser-mot-de-passe" element={<ResetPassword />} />
 
-          {/* Tout le reste de l'app nécessite une connexion */}
           <Route
             path="/*"
             element={

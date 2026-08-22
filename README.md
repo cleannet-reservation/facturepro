@@ -16,7 +16,7 @@ Devis, factures et acomptes en ligne — SaaS multi-clients avec abonnement.
 - Attestation fiscale annuelle pour les clients éligibles au crédit d'impôt SAP
 - Trésorerie prévisionnelle (argent à venir par échéance)
 - Marque blanche : nom d'app et couleur personnalisables par déploiement
-- Abonnement mensuel des clients à la plateforme (Stripe Subscriptions) avec essai gratuit de 14 jours
+- Abonnement mensuel des clients à la plateforme (Stripe Subscriptions) avec essai gratuit de 7 jours
 - Panneau super admin : liste des abonnés, activation/désactivation manuelle, connexion en tant que client (support)
 - Factures d'achat, notes de frais, factures récurrentes
 - Tableau de bord avec graphique de chiffre d'affaires et statuts cliquables
@@ -109,6 +109,12 @@ Chaque jour à 8h UTC (`vercel.json`), `/api/send-reminders` marque les factures
 ## Panneau Super admin
 
 `/admin` : liste des entreprises, statut d'abonnement, MRR estimé, bouton pour bloquer/débloquer l'accès, bouton "Se connecter" (génère un lien magique — à ouvrir en navigation privée pour ne pas remplacer ta propre session).
+
+## Mettre à jour un site déjà en ligne (pas une installation neuve)
+
+Si ton site tourne déjà et que tu ajoutes juste ce code mis à jour :
+- Lance `supabase/migration_essai_7_jours.sql` pour que les nouvelles inscriptions aient 7 jours d'essai (au lieu de 14)
+- Aucune autre migration n'est nécessaire pour le bouton "S'abonner maintenant" — il utilise l'infrastructure déjà en place
 
 ## Stack technique
 

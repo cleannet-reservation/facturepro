@@ -31,7 +31,7 @@ create table businesses (
   app_name text default 'FacturePro',
   brand_color text default '#22D3EE',
   subscription_status text default 'trial' check (subscription_status in ('trial', 'active', 'past_due', 'canceled')),
-  trial_ends_at timestamptz default (now() + interval '14 days'),
+  trial_ends_at timestamptz default (now() + interval '7 days'),
   stripe_customer_id text,
   stripe_subscription_id text,
   access_enabled boolean default true,

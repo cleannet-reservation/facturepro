@@ -1,6 +1,6 @@
 alter table businesses add column if not exists subscription_status text default 'trial'
   check (subscription_status in ('trial', 'active', 'past_due', 'canceled'));
-alter table businesses add column if not exists trial_ends_at timestamptz default (now() + interval '14 days');
+alter table businesses add column if not exists trial_ends_at timestamptz default (now() + interval '7 days');
 alter table businesses add column if not exists stripe_customer_id text;
 alter table businesses add column if not exists stripe_subscription_id text;
 alter table businesses add column if not exists access_enabled boolean default true;

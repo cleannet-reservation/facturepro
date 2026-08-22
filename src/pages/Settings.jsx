@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { applyBrandColor } from '../lib/theme'
+import { formatDate } from '../lib/calc'
 
 export default function Settings() {
   const { business, session, refreshBusiness } = useAuth()
@@ -21,6 +22,9 @@ export default function Settings() {
   const [webhookSaving, setWebhookSaving] = useState(false)
   const [webhookSaved, setWebhookSaved] = useState(false)
   const [webhookError, setWebhookError] = useState('')
+
+  const [subscribeLoading, setSubscribeLoading] = useState(false)
+  const [subscribeError, setSubscribeError] = useState('')
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }))
@@ -83,6 +87,24 @@ export default function Settings() {
       setError(err.message)
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function handleSubscribeNow() {
+    setSubscribeLoading(true)
+    setSubscribeError('')
+    try {
+      const res = await fetch('/api/create-subscription-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: business.id, returnOrigin: window.location.origin }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      window.location.href = data.url
+    } catch (err) {
+      setSubscribeError(err.message)
+      setSubscribeLoading(false)
     }
   }
 
@@ -153,6 +175,20 @@ export default function Settings() {
       <header className="page-header">
         <h1>Paramètres de l'entreprise</h1>
       </header>
+
+      {business?.subscription_status === 'trial' && (
+        <section className="panel">
+          <h2 className="section-title" style={{ marginTop: 0 }}>Ton abonnement</h2>
+          <p className="muted" style={{ marginBottom: 12 }}>
+            Tu es actuellement en période d'essai gratuit{business.trial_ends_at ? ` jusqu'au ${formatDate(business.trial_ends_at)}` : ''}.
+            Tu peux t'abonner dès maintenant si tu ne veux pas attendre la fin de l'essai.
+          </p>
+          <button className="btn-secondary" disabled={subscribeLoading} onClick={handleSubscribeNow}>
+            {subscribeLoading ? 'Redirection…' : "S'abonner maintenant (15 €/mois)"}
+          </button>
+          {subscribeError && <div className="form-error" style={{ marginTop: 12 }}>{subscribeError}</div>}
+        </section>
+      )}
 
       <section className="panel">
         <h2 className="section-title" style={{ marginTop: 0 }}>Paiements en ligne (Stripe)</h2>

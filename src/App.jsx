@@ -22,6 +22,7 @@ import NotesDeFrais from './pages/NotesDeFrais'
 import Settings from './pages/Settings'
 import PublicQuote from './pages/PublicQuote'
 import ResetPassword from './pages/ResetPassword'
+import { MentionsLegales, Confidentialite, CGV } from './pages/Legal'
 
 function Gate({ children }) {
   const { session, business, loading, hasActiveAccess } = useAuth()
@@ -47,6 +48,9 @@ export default function App() {
         <Routes>
           <Route path="/consultation/devis/:token" element={<PublicQuote />} />
           <Route path="/reinitialiser-mot-de-passe" element={<ResetPassword />} />
+          <Route path="/mentions-legales" element={<MentionsLegales />} />
+          <Route path="/confidentialite" element={<Confidentialite />} />
+          <Route path="/cgv" element={<CGV />} />
 
           <Route
             path="/*"

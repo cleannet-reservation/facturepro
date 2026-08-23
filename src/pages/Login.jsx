@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { APP_NAME } from '../lib/theme'
 
@@ -6,6 +7,7 @@ export default function Login() {
   const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [acceptTerms, setAcceptTerms] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [busy, setBusy] = useState(false)
@@ -14,13 +16,29 @@ export default function Login() {
     e.preventDefault()
     setError('')
     setInfo('')
+
+    if (mode === 'signup' && !acceptTerms) {
+      setError("Merci d'accepter les CGV pour créer ton compte.")
+      return
+    }
+
     setBusy(true)
     try {
       if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
       } else if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password })
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              cgv_accepted_at: new Date().toISOString(),
+              cgv_version: '2026-08-23',
+              withdrawal_right_waived: true,
+            },
+          },
+        })
         if (error) throw error
         setInfo('Compte créé. Vérifie ta boîte mail pour confirmer ton adresse, puis connecte-toi.')
       } else if (mode === 'forgot') {
@@ -61,6 +79,18 @@ export default function Login() {
             </label>
           )}
 
+          {mode === 'signup' && (
+            <label className="radio-row" style={{ alignItems: 'flex-start' }}>
+              <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} style={{ marginTop: 3 }} />
+              <span>
+                J'accepte les <Link to="/cgv" target="_blank">CGV</Link> et la{' '}
+                <Link to="/confidentialite" target="_blank">politique de confidentialité</Link>, et je demande le
+                commencement immédiat du service en renonçant à mon droit de rétractation de 14 jours une fois le
+                service pleinement exécuté.
+              </span>
+            </label>
+          )}
+
           {error && <div className="form-error">{error}</div>}
           {info && <div className="form-info">{info}</div>}
 
@@ -84,6 +114,12 @@ export default function Login() {
             Retour à la connexion
           </button>
         )}
+
+        <div style={{ marginTop: 24, display: 'flex', gap: 14, fontSize: 12 }}>
+          <Link to="/mentions-legales" style={{ color: 'var(--text-secondary)' }}>Mentions légales</Link>
+          <Link to="/confidentialite" style={{ color: 'var(--text-secondary)' }}>Confidentialité</Link>
+          <Link to="/cgv" style={{ color: 'var(--text-secondary)' }}>CGV</Link>
+        </div>
       </div>
     </div>
   )

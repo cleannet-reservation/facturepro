@@ -501,6 +501,11 @@ fieldset legend {
   padding: 0;
 }
 
+.legal-content { line-height: 1.7; font-size: 14px; color: var(--white); }
+.legal-content p { margin-bottom: 14px; }
+.legal-content .section-title { margin-top: 26px; }
+.legal-content strong { color: var(--cyan); }
+
 .loading-screen {
   min-height: 100vh;
   display: flex;

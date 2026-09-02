@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   try {
     const { data: quote, error: quoteError } = await supabaseAdmin
       .from('quotes')
-      .select('*, clients(name, address, postal_code, city), businesses(name, address, postal_code, city, siret, tva_number, email, phone, logo_url, tax_regime)')
+      .select('*, clients(name, client_type, company_name, address, postal_code, city), businesses(name, address, postal_code, city, siret, tva_number, email, phone, logo_url, tax_regime)')
       .eq('public_token', token)
       .single()
     if (quoteError || !quote) return res.status(404).json({ error: 'Devis introuvable' })

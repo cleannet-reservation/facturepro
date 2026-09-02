@@ -130,7 +130,7 @@ export default function FactureForm() {
             <select value={clientId} onChange={(e) => setClientId(e.target.value)} required>
               {clients.length === 0 && <option value="">Aucun client — crée-en un d'abord</option>}
               {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>{c.client_type === 'professionnel' ? c.company_name : c.name}</option>
               ))}
             </select>
           </label>

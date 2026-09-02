@@ -71,7 +71,7 @@ export default function PublicQuote() {
         </div>
         <h1>Devis {quote.number}</h1>
         <p className="auth-sub">
-          {client.name} — émis le {formatDate(quote.issue_date)}
+          {client.client_type === 'professionnel' ? client.company_name : client.name} — émis le {formatDate(quote.issue_date)}
           {quote.validity_date && ` — valable jusqu'au ${formatDate(quote.validity_date)}`}
         </p>
 

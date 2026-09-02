@@ -52,20 +52,29 @@ export default function ClientDetail() {
     setError('')
     setBusy(true)
     try {
+      const payload = {
+        client_type: form.client_type,
+        name: form.name,
+        company_name: form.client_type === 'professionnel' ? form.company_name : null,
+        tva_number: form.client_type === 'professionnel' ? form.tva_number : null,
+        siren_siret: form.client_type === 'professionnel' ? form.siren_siret : null,
+        naf_code: form.client_type === 'professionnel' ? form.naf_code : null,
+        language: form.language,
+        email: form.email,
+        phone: form.phone,
+        address: form.address,
+        address_complement: form.address_complement,
+        postal_code: form.postal_code,
+        city: form.city,
+        website: form.client_type === 'professionnel' ? form.website : null,
+        notes: form.notes,
+      }
       const { error: updateError } = await supabase
         .from('clients')
-        .update({
-          name: form.name,
-          email: form.email,
-          phone: form.phone,
-          address: form.address,
-          postal_code: form.postal_code,
-          city: form.city,
-          notes: form.notes,
-        })
+        .update(payload)
         .eq('id', id)
       if (updateError) throw updateError
-      setClient(form)
+      setClient({ ...client, ...payload })
       setEditing(false)
     } catch (err) {
       setError(err.message)
@@ -126,7 +135,7 @@ export default function ClientDetail() {
   return (
     <div>
       <header className="page-header">
-        <h1>{client.name}</h1>
+        <h1>{client.client_type === 'professionnel' ? client.company_name : client.name}</h1>
         <button className="btn-secondary" onClick={() => setEditing((e) => !e)}>
           {editing ? 'Annuler' : 'Modifier la fiche'}
         </button>
@@ -134,7 +143,42 @@ export default function ClientDetail() {
 
       {editing ? (
         <form onSubmit={handleSave} className="panel form-grid">
-          <label>Nom / raison sociale
+          <fieldset className="span-2 tax-regime">
+            <legend>Type de client</legend>
+            <label className="radio-row">
+              <input type="radio" name="client_type" checked={form.client_type === 'particulier'} onChange={() => setForm({ ...form, client_type: 'particulier' })} />
+              Particulier
+            </label>
+            <label className="radio-row">
+              <input type="radio" name="client_type" checked={form.client_type === 'professionnel'} onChange={() => setForm({ ...form, client_type: 'professionnel' })} />
+              Professionnel
+            </label>
+          </fieldset>
+
+          {form.client_type === 'professionnel' && (
+            <>
+              <label className="span-2">Nom de la société *
+                <input required value={form.company_name || ''} onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
+              </label>
+              <label>Numéro de TVA
+                <input value={form.tva_number || ''} onChange={(e) => setForm({ ...form, tva_number: e.target.value })} placeholder="FR12345678900" />
+              </label>
+              <label>SIREN/SIRET
+                <input value={form.siren_siret || ''} onChange={(e) => setForm({ ...form, siren_siret: e.target.value })} />
+              </label>
+              <label>Code NAF, NACE, NOGA…
+                <input value={form.naf_code || ''} onChange={(e) => setForm({ ...form, naf_code: e.target.value })} />
+              </label>
+              <label>Langue
+                <select value={form.language || 'fr'} onChange={(e) => setForm({ ...form, language: e.target.value })}>
+                  <option value="fr">Français</option>
+                  <option value="en">Anglais</option>
+                </select>
+              </label>
+            </>
+          )}
+
+          <label className="span-2">{form.client_type === 'professionnel' ? 'Nom du contact' : 'Nom / raison sociale'}
             <input required value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </label>
           <label>Email
@@ -143,8 +187,11 @@ export default function ClientDetail() {
           <label>Téléphone
             <input value={form.phone || ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </label>
-          <label>Adresse
+          <label className="span-2">Adresse
             <input value={form.address || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          </label>
+          <label className="span-2">Complément d'adresse
+            <input value={form.address_complement || ''} onChange={(e) => setForm({ ...form, address_complement: e.target.value })} />
           </label>
           <label>Code postal
             <input value={form.postal_code || ''} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} />
@@ -152,6 +199,11 @@ export default function ClientDetail() {
           <label>Ville
             <input value={form.city || ''} onChange={(e) => setForm({ ...form, city: e.target.value })} />
           </label>
+          {form.client_type === 'professionnel' && (
+            <label className="span-2">Site internet
+              <input value={form.website || ''} onChange={(e) => setForm({ ...form, website: e.target.value })} placeholder="https://" />
+            </label>
+          )}
           <label className="span-2">Notes
             <textarea rows={3} value={form.notes || ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </label>
@@ -163,9 +215,13 @@ export default function ClientDetail() {
       ) : (
         <section className="panel doc-summary">
           <div>
+            {client.client_type === 'professionnel' && <div className="muted">Contact : {client.name}</div>}
+            {client.client_type === 'professionnel' && client.tva_number && <div className="muted">TVA : {client.tva_number}</div>}
+            {client.client_type === 'professionnel' && client.siren_siret && <div className="muted">SIREN/SIRET : {client.siren_siret}</div>}
             <div className="muted">{client.email}</div>
             <div className="muted">{client.phone}</div>
-            <div className="muted">{client.address} {client.postal_code} {client.city}</div>
+            <div className="muted">{client.address} {client.address_complement} {client.postal_code} {client.city}</div>
+            {client.website && <div className="muted">{client.website}</div>}
             {client.notes && <div className="muted" style={{ marginTop: 8 }}>{client.notes}</div>}
           </div>
         </section>

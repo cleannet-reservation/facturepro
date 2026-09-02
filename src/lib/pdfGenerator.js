@@ -84,9 +84,28 @@ export async function generateDocumentPDF(doc_) {
 
   y += 8
 
+  const isProClient = doc_.client.client_type === 'professionnel'
+  const clientLines = isProClient
+    ? [
+        doc_.client.company_name,
+        `Contact : ${doc_.client.name}`,
+        doc_.client.address,
+        [doc_.client.address_complement].filter(Boolean).join(' '),
+        [doc_.client.postal_code, doc_.client.city].filter(Boolean).join(' '),
+        doc_.client.tva_number ? `TVA : ${doc_.client.tva_number}` : null,
+        doc_.client.siren_siret ? `SIREN/SIRET : ${doc_.client.siren_siret}` : null,
+      ].filter(Boolean)
+    : [
+        doc_.client.name,
+        doc_.client.address,
+        [doc_.client.postal_code, doc_.client.city].filter(Boolean).join(' '),
+      ].filter(Boolean)
+
+  const clientBoxHeight = Math.max(26, 10 + clientLines.length * 4.5)
+
   doc.setDrawColor(220, 217, 208)
   doc.setFillColor(247, 244, 236)
-  doc.roundedRect(margin, y, 80, 26, 1, 1, 'F')
+  doc.roundedRect(margin, y, 80, clientBoxHeight, 1, 1, 'F')
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   doc.setTextColor(...ink)
@@ -94,17 +113,12 @@ export async function generateDocumentPDF(doc_) {
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...grey)
   let cy = y + 11
-  const clientLines = [
-    doc_.client.name,
-    doc_.client.address,
-    [doc_.client.postal_code, doc_.client.city].filter(Boolean).join(' '),
-  ].filter(Boolean)
   clientLines.forEach((line) => {
     doc.text(line, margin + 4, cy)
     cy += 4.5
   })
 
-  y += 34
+  y += clientBoxHeight + 8
 
   const hasTva = doc_.business.tax_regime === 'assujetti'
   const head = hasTva

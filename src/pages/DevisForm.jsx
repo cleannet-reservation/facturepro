@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { computeTotals, formatEUR } from '../lib/calc'
@@ -11,6 +11,9 @@ function emptyItem() {
 export default function DevisForm() {
   const { business } = useAuth()
   const navigate = useNavigate()
+  const { id } = useParams() // présent seulement en mode édition (/devis/:id/modifier)
+  const isEditMode = !!id
+
   const [clients, setClients] = useState([])
   const [clientId, setClientId] = useState('')
   const [services, setServices] = useState([])
@@ -20,6 +23,8 @@ export default function DevisForm() {
   const [items, setItems] = useState([emptyItem()])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [loadingQuote, setLoadingQuote] = useState(isEditMode)
+  const [quoteNumber, setQuoteNumber] = useState('')
 
   function defaultValidity() {
     const d = new Date()
@@ -31,8 +36,25 @@ export default function DevisForm() {
     if (business) {
       loadClients()
       loadServices()
+      if (isEditMode) loadExistingQuote()
     }
-  }, [business])
+  }, [business, id])
+
+  async function loadExistingQuote() {
+    const { data: quote } = await supabase.from('quotes').select('*').eq('id', id).single()
+    if (!quote) return
+    setQuoteNumber(quote.number)
+    setClientId(quote.client_id)
+    setValidityDate(quote.validity_date || defaultValidity())
+    setTaxCreditEligible(!!quote.tax_credit_eligible)
+    setNotes(quote.notes || '')
+
+    const { data: its } = await supabase.from('quote_items').select('*').eq('quote_id', id).order('position')
+    if (its && its.length > 0) {
+      setItems(its.map((it) => ({ description: it.description, quantity: it.quantity, unit_price: it.unit_price, tva_rate: it.tva_rate })))
+    }
+    setLoadingQuote(false)
+  }
 
   async function loadServices() {
     const { data } = await supabase.from('services').select('*').eq('business_id', business.id).order('name')
@@ -42,7 +64,7 @@ export default function DevisForm() {
   async function loadClients() {
     const { data } = await supabase.from('clients').select('*').eq('business_id', business.id).order('name')
     setClients(data || [])
-    if (data && data.length > 0) setClientId(data[0].id)
+    if (!isEditMode && data && data.length > 0) setClientId(data[0].id)
   }
 
   function updateItem(index, field, value) {
@@ -78,37 +100,66 @@ export default function DevisForm() {
     }
     setBusy(true)
     try {
-      const number = `D-${String(business.quote_next_number).padStart(4, '0')}`
+      if (isEditMode) {
+        const { error: updateError } = await supabase
+          .from('quotes')
+          .update({
+            client_id: clientId,
+            validity_date: validityDate,
+            notes,
+            tax_credit_eligible: taxCreditEligible,
+            ...totals,
+          })
+          .eq('id', id)
+        if (updateError) throw updateError
 
-      const { data: quote, error: quoteError } = await supabase
-        .from('quotes')
-        .insert({
-          business_id: business.id,
-          client_id: clientId,
-          number,
-          validity_date: validityDate,
-          notes,
-          tax_credit_eligible: taxCreditEligible,
-          ...totals,
-        })
-        .select()
-        .single()
-      if (quoteError) throw quoteError
+        // Repart d'une liste de lignes propre : on supprime les anciennes, on insère les nouvelles
+        await supabase.from('quote_items').delete().eq('quote_id', id)
+        const itemsPayload = items.map((it, i) => ({
+          quote_id: id,
+          description: it.description,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          tva_rate: business.tax_regime === 'assujetti' ? it.tva_rate : 0,
+          position: i,
+        }))
+        const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload)
+        if (itemsError) throw itemsError
 
-      const itemsPayload = items.map((it, i) => ({
-        quote_id: quote.id,
-        description: it.description,
-        quantity: it.quantity,
-        unit_price: it.unit_price,
-        tva_rate: business.tax_regime === 'assujetti' ? it.tva_rate : 0,
-        position: i,
-      }))
-      const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload)
-      if (itemsError) throw itemsError
+        navigate(`/devis/${id}`)
+      } else {
+        const number = `D-${String(business.quote_next_number).padStart(4, '0')}`
 
-      await supabase.from('businesses').update({ quote_next_number: business.quote_next_number + 1 }).eq('id', business.id)
+        const { data: quote, error: quoteError } = await supabase
+          .from('quotes')
+          .insert({
+            business_id: business.id,
+            client_id: clientId,
+            number,
+            validity_date: validityDate,
+            notes,
+            tax_credit_eligible: taxCreditEligible,
+            ...totals,
+          })
+          .select()
+          .single()
+        if (quoteError) throw quoteError
 
-      navigate(`/devis/${quote.id}`)
+        const itemsPayload = items.map((it, i) => ({
+          quote_id: quote.id,
+          description: it.description,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          tva_rate: business.tax_regime === 'assujetti' ? it.tva_rate : 0,
+          position: i,
+        }))
+        const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload)
+        if (itemsError) throw itemsError
+
+        await supabase.from('businesses').update({ quote_next_number: business.quote_next_number + 1 }).eq('id', business.id)
+
+        navigate(`/devis/${quote.id}`)
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -116,10 +167,12 @@ export default function DevisForm() {
     }
   }
 
+  if (loadingQuote) return <p>Chargement…</p>
+
   return (
     <div>
       <header className="page-header">
-        <h1>Nouveau devis</h1>
+        <h1>{isEditMode ? `Modifier le devis ${quoteNumber}` : 'Nouveau devis'}</h1>
       </header>
 
       <form onSubmit={handleSubmit} className="panel">
@@ -208,7 +261,7 @@ export default function DevisForm() {
         {error && <div className="form-error">{error}</div>}
 
         <button type="submit" className="btn-primary" disabled={busy}>
-          {busy ? 'Création…' : 'Créer le devis'}
+          {busy ? 'Enregistrement…' : isEditMode ? 'Enregistrer les modifications' : 'Créer le devis'}
         </button>
       </form>
     </div>

@@ -178,7 +178,7 @@ export default function ClientDetail() {
             </>
           )}
 
-          <label className="span-2">{form.client_type === 'professionnel' ? 'Nom du contact' : 'Nom / raison sociale'}
+          <label className="span-2">{form.client_type === 'professionnel' ? "Nom du contact (usage interne, n'apparaît pas sur les documents)" : 'Nom et prénom'}
             <input required value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </label>
           <label>Email

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { formatEUR, formatDate, computeCreditImpot, INVOICE_TYPE_LABELS } from '../lib/calc'
@@ -75,6 +75,23 @@ export default function FactureDetail() {
 
   async function handleDownloadPDF() {
     await downloadDocumentPDF(buildPdfDoc())
+  }
+
+  async function handleDelete() {
+    const confirmMsg = invoice.status === 'paid'
+      ? 'Cette facture est marquée comme payée. La supprimer effacera aussi son historique de paiement. Continuer ?'
+      : 'Supprimer définitivement cette facture ? Cette action est irréversible.'
+    if (!confirm(confirmMsg)) return
+
+    setBusy(true)
+    try {
+      const { error: deleteError } = await supabase.from('invoices').delete().eq('id', id)
+      if (deleteError) throw deleteError
+      navigate('/factures')
+    } catch (err) {
+      alert(err.message)
+      setBusy(false)
+    }
   }
 
   async function handleDuplicate() {
@@ -310,6 +327,7 @@ export default function FactureDetail() {
 
       <section className="panel action-row">
         <button className="btn-secondary" onClick={handleDownloadPDF}>Télécharger le PDF</button>
+        <Link to={`/factures/${id}/modifier`} className="btn-secondary">Modifier</Link>
         <button className="btn-secondary" disabled={busy} onClick={handleDuplicate}>Dupliquer</button>
         <button className="btn-secondary" disabled={sendingEmail} onClick={() => handleSendEmail(false)}>
           {sendingEmail ? 'Envoi…' : 'Envoyer par email'}
@@ -408,6 +426,14 @@ export default function FactureDetail() {
           )}
         </section>
       )}
+
+      <section className="panel">
+        <h2 className="section-title" style={{ marginTop: 0 }}>Zone dangereuse</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>Cette action est irréversible.</p>
+        <button className="btn-secondary" style={{ borderColor: 'var(--red)', color: 'var(--red)' }} disabled={busy} onClick={handleDelete}>
+          Supprimer cette facture
+        </button>
+      </section>
     </div>
   )
 }

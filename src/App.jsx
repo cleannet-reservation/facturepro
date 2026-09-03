@@ -65,9 +65,11 @@ export default function App() {
                     <Route path="catalogue" element={<Catalogue />} />
                     <Route path="devis" element={<Devis />} />
                     <Route path="devis/nouveau" element={<DevisForm />} />
+                    <Route path="devis/:id/modifier" element={<DevisForm />} />
                     <Route path="devis/:id" element={<DevisDetail />} />
                     <Route path="factures" element={<Factures />} />
                     <Route path="factures/nouvelle" element={<FactureForm />} />
+                    <Route path="factures/:id/modifier" element={<FactureForm />} />
                     <Route path="factures/:id" element={<FactureDetail />} />
                     <Route path="factures-recurrentes" element={<FacturesRecurrentes />} />
                     <Route path="achats" element={<Achats />} />

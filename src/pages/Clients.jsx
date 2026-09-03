@@ -83,7 +83,7 @@ export default function Clients() {
 
           {form.client_type === 'professionnel' && (
             <>
-              <label className="span-2">Nom de la société *
+              <label className="span-2">Nom de la société * <span className="muted" style={{ fontWeight: 400 }}>(nom affiché sur les devis/factures)</span>
                 <input required value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} placeholder="Ex : Cabinet Dentaire Azur" />
               </label>
               <label>Numéro de TVA
@@ -104,7 +104,7 @@ export default function Clients() {
             </>
           )}
 
-          <label className="span-2">{form.client_type === 'professionnel' ? 'Nom du contact' : 'Nom / raison sociale'}
+          <label className="span-2">{form.client_type === 'professionnel' ? "Nom du contact (usage interne, n'apparaît pas sur les documents)" : 'Nom et prénom'}
             <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={form.client_type === 'professionnel' ? 'Ex : Dr Martin (contact)' : 'Prénom Nom'} />
           </label>
 

@@ -98,6 +98,24 @@ export default function DevisDetail() {
     }
   }
 
+  async function handleDelete() {
+    const invoiceCount = relatedInvoices.length
+    const confirmMsg = invoiceCount > 0
+      ? `Ce devis a ${invoiceCount} facture(s) liée(s). Supprimer le devis ne supprime pas ces factures, mais elles perdront leur lien vers ce devis. Continuer ?`
+      : 'Supprimer définitivement ce devis ? Cette action est irréversible.'
+    if (!confirm(confirmMsg)) return
+
+    setBusy(true)
+    try {
+      const { error: deleteError } = await supabase.from('quotes').delete().eq('id', id)
+      if (deleteError) throw deleteError
+      navigate('/devis')
+    } catch (err) {
+      alert(err.message)
+      setBusy(false)
+    }
+  }
+
   async function handleDuplicate() {
     setBusy(true)
     try {
@@ -288,6 +306,7 @@ export default function DevisDetail() {
 
       <section className="panel action-row">
         <button className="btn-secondary" onClick={handleDownloadPDF}>Télécharger le PDF</button>
+        <Link to={`/devis/${id}/modifier`} className="btn-secondary">Modifier</Link>
         <button className="btn-secondary" disabled={busy} onClick={handleDuplicate}>Dupliquer</button>
         <button className="btn-secondary" disabled={sendingEmail} onClick={handleSendEmail}>
           {sendingEmail ? 'Envoi…' : 'Envoyer par email'}
@@ -364,6 +383,14 @@ export default function DevisDetail() {
           )}
         </section>
       )}
+
+      <section className="panel">
+        <h2 className="section-title" style={{ marginTop: 0 }}>Zone dangereuse</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>Cette action est irréversible.</p>
+        <button className="btn-secondary" style={{ borderColor: 'var(--red)', color: 'var(--red)' }} disabled={busy} onClick={handleDelete}>
+          Supprimer ce devis
+        </button>
+      </section>
     </div>
   )
 }

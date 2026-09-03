@@ -88,7 +88,6 @@ export async function generateDocumentPDF(doc_) {
   const clientLines = isProClient
     ? [
         doc_.client.company_name,
-        `Contact : ${doc_.client.name}`,
         doc_.client.address,
         [doc_.client.address_complement].filter(Boolean).join(' '),
         [doc_.client.postal_code, doc_.client.city].filter(Boolean).join(' '),

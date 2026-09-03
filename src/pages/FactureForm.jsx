@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import { computeTotals, formatEUR } from '../lib/calc'
@@ -11,6 +11,9 @@ function emptyItem() {
 export default function FactureForm() {
   const { business } = useAuth()
   const navigate = useNavigate()
+  const { id } = useParams() // présent seulement en mode édition (/factures/:id/modifier)
+  const isEditMode = !!id
+
   const [clients, setClients] = useState([])
   const [clientId, setClientId] = useState('')
   const [services, setServices] = useState([])
@@ -20,6 +23,9 @@ export default function FactureForm() {
   const [items, setItems] = useState([emptyItem()])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [loadingInvoice, setLoadingInvoice] = useState(isEditMode)
+  const [invoiceNumber, setInvoiceNumber] = useState('')
+  const [invoiceType, setInvoiceType] = useState('standalone')
 
   function defaultDueDate() {
     const d = new Date()
@@ -31,8 +37,26 @@ export default function FactureForm() {
     if (business) {
       loadClients()
       loadServices()
+      if (isEditMode) loadExistingInvoice()
     }
-  }, [business])
+  }, [business, id])
+
+  async function loadExistingInvoice() {
+    const { data: invoice } = await supabase.from('invoices').select('*').eq('id', id).single()
+    if (!invoice) return
+    setInvoiceNumber(invoice.number)
+    setInvoiceType(invoice.invoice_type)
+    setClientId(invoice.client_id)
+    setDueDate(invoice.due_date || defaultDueDate())
+    setTaxCreditEligible(!!invoice.tax_credit_eligible)
+    setNotes(invoice.notes || '')
+
+    const { data: its } = await supabase.from('invoice_items').select('*').eq('invoice_id', id).order('position')
+    if (its && its.length > 0) {
+      setItems(its.map((it) => ({ description: it.description, quantity: it.quantity, unit_price: it.unit_price, tva_rate: it.tva_rate })))
+    }
+    setLoadingInvoice(false)
+  }
 
   async function loadServices() {
     const { data } = await supabase.from('services').select('*').eq('business_id', business.id).order('name')
@@ -42,7 +66,7 @@ export default function FactureForm() {
   async function loadClients() {
     const { data } = await supabase.from('clients').select('*').eq('business_id', business.id).order('name')
     setClients(data || [])
-    if (data && data.length > 0) setClientId(data[0].id)
+    if (!isEditMode && data && data.length > 0) setClientId(data[0].id)
   }
 
   function updateItem(index, field, value) {
@@ -78,38 +102,66 @@ export default function FactureForm() {
     }
     setBusy(true)
     try {
-      const number = `F-${String(business.invoice_next_number).padStart(4, '0')}`
+      if (isEditMode) {
+        const { error: updateError } = await supabase
+          .from('invoices')
+          .update({
+            client_id: clientId,
+            due_date: dueDate,
+            notes,
+            tax_credit_eligible: taxCreditEligible,
+            ...totals,
+          })
+          .eq('id', id)
+        if (updateError) throw updateError
 
-      const { data: invoice, error: invError } = await supabase
-        .from('invoices')
-        .insert({
-          business_id: business.id,
-          client_id: clientId,
-          number,
-          invoice_type: 'standalone',
-          due_date: dueDate,
-          notes,
-          tax_credit_eligible: taxCreditEligible,
-          ...totals,
-        })
-        .select()
-        .single()
-      if (invError) throw invError
+        await supabase.from('invoice_items').delete().eq('invoice_id', id)
+        const itemsPayload = items.map((it, i) => ({
+          invoice_id: id,
+          description: it.description,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          tva_rate: business.tax_regime === 'assujetti' ? it.tva_rate : 0,
+          position: i,
+        }))
+        const { error: itemsError } = await supabase.from('invoice_items').insert(itemsPayload)
+        if (itemsError) throw itemsError
 
-      const itemsPayload = items.map((it, i) => ({
-        invoice_id: invoice.id,
-        description: it.description,
-        quantity: it.quantity,
-        unit_price: it.unit_price,
-        tva_rate: business.tax_regime === 'assujetti' ? it.tva_rate : 0,
-        position: i,
-      }))
-      const { error: itemsError } = await supabase.from('invoice_items').insert(itemsPayload)
-      if (itemsError) throw itemsError
+        navigate(`/factures/${id}`)
+      } else {
+        const number = `F-${String(business.invoice_next_number).padStart(4, '0')}`
 
-      await supabase.from('businesses').update({ invoice_next_number: business.invoice_next_number + 1 }).eq('id', business.id)
+        const { data: invoice, error: invError } = await supabase
+          .from('invoices')
+          .insert({
+            business_id: business.id,
+            client_id: clientId,
+            number,
+            invoice_type: 'standalone',
+            due_date: dueDate,
+            notes,
+            tax_credit_eligible: taxCreditEligible,
+            ...totals,
+          })
+          .select()
+          .single()
+        if (invError) throw invError
 
-      navigate(`/factures/${invoice.id}`)
+        const itemsPayload = items.map((it, i) => ({
+          invoice_id: invoice.id,
+          description: it.description,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          tva_rate: business.tax_regime === 'assujetti' ? it.tva_rate : 0,
+          position: i,
+        }))
+        const { error: itemsError } = await supabase.from('invoice_items').insert(itemsPayload)
+        if (itemsError) throw itemsError
+
+        await supabase.from('businesses').update({ invoice_next_number: business.invoice_next_number + 1 }).eq('id', business.id)
+
+        navigate(`/factures/${invoice.id}`)
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -117,11 +169,20 @@ export default function FactureForm() {
     }
   }
 
+  if (loadingInvoice) return <p>Chargement…</p>
+
   return (
     <div>
       <header className="page-header">
-        <h1>Nouvelle facture</h1>
+        <h1>{isEditMode ? `Modifier la facture ${invoiceNumber}` : 'Nouvelle facture'}</h1>
       </header>
+
+      {isEditMode && invoiceType !== 'standalone' && (
+        <div className="form-info" style={{ marginBottom: 16 }}>
+          Cette facture est une {invoiceType === 'acompte' ? "facture d'acompte" : 'facture de solde'} liée à un devis —
+          modifier ses lignes ne recalculera pas automatiquement le lien avec le devis d'origine.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="panel">
         <div className="form-grid">
@@ -209,7 +270,7 @@ export default function FactureForm() {
         {error && <div className="form-error">{error}</div>}
 
         <button type="submit" className="btn-primary" disabled={busy}>
-          {busy ? 'Création…' : 'Créer la facture'}
+          {busy ? 'Enregistrement…' : isEditMode ? 'Enregistrer les modifications' : 'Créer la facture'}
         </button>
       </form>
     </div>

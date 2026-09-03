@@ -332,6 +332,7 @@ fieldset legend {
   border-bottom: 1px solid var(--border);
   font-size: 14px;
   color: var(--white);
+  white-space: pre-line;
 }
 
 .data-table tr:last-child td { border-bottom: none; }
@@ -344,6 +345,12 @@ fieldset legend {
 
 .items-table .qty-input, .items-table .tva-input { width: 64px; }
 .items-table .price-input { width: 100px; }
+.items-table .description-input {
+  resize: vertical;
+  min-height: 36px;
+  line-height: 1.4;
+  font-family: inherit;
+}
 .items-table .line-total {
   font-family: var(--font-mono);
   white-space: nowrap;

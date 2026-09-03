@@ -208,7 +208,7 @@ export default function DevisForm() {
           <tbody>
             {items.map((it, i) => (
               <tr key={i}>
-                <td><input value={it.description} onChange={(e) => updateItem(i, 'description', e.target.value)} placeholder="Nettoyage canapé 3 places" /></td>
+                <td><textarea rows={1} className="description-input" value={it.description} onChange={(e) => updateItem(i, 'description', e.target.value)} placeholder="Nettoyage canapé 3 places" /></td>
                 <td><input type="number" min="0" step="0.5" value={it.quantity} onChange={(e) => updateItem(i, 'quantity', e.target.value)} className="qty-input" /></td>
                 <td><input type="number" min="0" step="0.01" value={it.unit_price} onChange={(e) => updateItem(i, 'unit_price', e.target.value)} className="price-input" /></td>
                 {business?.tax_regime === 'assujetti' && (

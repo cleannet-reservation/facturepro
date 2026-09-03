@@ -135,6 +135,9 @@ export default function DevisDetail() {
           subtotal_ht: quote.subtotal_ht,
           tva_amount: quote.tva_amount,
           total_ttc: quote.total_ttc,
+          discount_type: quote.discount_type,
+          discount_value: quote.discount_value,
+          discount_amount: quote.discount_amount,
         })
         .select()
         .single()
@@ -171,6 +174,9 @@ export default function DevisDetail() {
       subtotal_ht: quote.subtotal_ht,
       tva_amount: quote.tva_amount,
       total_ttc: quote.total_ttc,
+      discount_type: quote.discount_type,
+      discount_value: quote.discount_value,
+      discount_amount: quote.discount_amount,
       tax_credit_eligible: quote.tax_credit_eligible,
       notes: quote.notes,
     })
@@ -300,6 +306,12 @@ export default function DevisDetail() {
           </tbody>
         </table>
         <div className="totals-box">
+          {quote.discount_amount > 0 && (
+            <div>
+              <span>Réduction {quote.discount_type === 'percent' ? `(${quote.discount_value}%)` : ''}</span>
+              <span>- {formatEUR(quote.discount_amount)}</span>
+            </div>
+          )}
           <div className="total-ttc"><span>Total TTC</span><span>{formatEUR(quote.total_ttc)}</span></div>
         </div>
       </section>

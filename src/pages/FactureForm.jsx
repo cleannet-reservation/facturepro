@@ -19,6 +19,8 @@ export default function FactureForm() {
   const [services, setServices] = useState([])
   const [dueDate, setDueDate] = useState(defaultDueDate())
   const [taxCreditEligible, setTaxCreditEligible] = useState(false)
+  const [discountType, setDiscountType] = useState('none')
+  const [discountValue, setDiscountValue] = useState('')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState([emptyItem()])
   const [error, setError] = useState('')
@@ -49,6 +51,8 @@ export default function FactureForm() {
     setClientId(invoice.client_id)
     setDueDate(invoice.due_date || defaultDueDate())
     setTaxCreditEligible(!!invoice.tax_credit_eligible)
+    setDiscountType(invoice.discount_type || 'none')
+    setDiscountValue(invoice.discount_value > 0 ? invoice.discount_value : '')
     setNotes(invoice.notes || '')
 
     const { data: its } = await supabase.from('invoice_items').select('*').eq('invoice_id', id).order('position')
@@ -87,7 +91,7 @@ export default function FactureForm() {
     setItems((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const totals = computeTotals(items, business?.tax_regime)
+  const totals = computeTotals(items, business?.tax_regime, { type: discountType, value: discountValue })
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -245,7 +249,26 @@ export default function FactureForm() {
           )}
         </div>
 
+        <div className="form-grid" style={{ marginTop: 12, alignItems: 'flex-end' }}>
+          <label>Réduction
+            <select value={discountType} onChange={(e) => setDiscountType(e.target.value)}>
+              <option value="none">Aucune</option>
+              <option value="percent">Pourcentage (%)</option>
+              <option value="amount">Montant fixe (€)</option>
+            </select>
+          </label>
+          {discountType !== 'none' && (
+            <label>{discountType === 'percent' ? 'Valeur (%)' : 'Valeur (€)'}
+              <input type="number" min="0" step="0.01" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} placeholder="0" />
+            </label>
+          )}
+        </div>
+
         <div className="totals-box">
+          <div><span>Sous-total</span><span>{formatEUR(items.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0))}</span></div>
+          {totals.discount_amount > 0 && (
+            <div><span>Réduction</span><span>- {formatEUR(totals.discount_amount)}</span></div>
+          )}
           {business?.tax_regime === 'assujetti' && (
             <>
               <div><span>Total HT</span><span>{formatEUR(totals.subtotal_ht)}</span></div>

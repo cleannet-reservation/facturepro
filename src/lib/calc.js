@@ -1,4 +1,7 @@
-export function computeTotals(items, taxRegime) {
+// discount (optionnel) : { type: 'none' | 'percent' | 'amount', value: number }
+// La réduction est appliquée sur le HT brut, avant calcul de la TVA — c'est la
+// pratique comptable standard (remise globale déduite du HT, TVA sur le net).
+export function computeTotals(items, taxRegime, discount) {
   let subtotalHT = 0
   let tvaAmount = 0
 
@@ -10,12 +13,28 @@ export function computeTotals(items, taxRegime) {
     }
   }
 
-  const totalTTC = subtotalHT + tvaAmount
+  let discountAmount = 0
+  if (discount && discount.type !== 'none' && Number(discount.value) > 0) {
+    if (discount.type === 'percent') {
+      discountAmount = subtotalHT * (Math.min(Number(discount.value), 100) / 100)
+    } else if (discount.type === 'amount') {
+      discountAmount = Math.min(Number(discount.value), subtotalHT)
+    }
+  }
+
+  // La TVA est réduite dans la même proportion que le HT (remise répartie sur toutes les lignes)
+  const ratio = subtotalHT > 0 ? (subtotalHT - discountAmount) / subtotalHT : 1
+  const netSubtotalHT = round2(subtotalHT - discountAmount)
+  const netTvaAmount = round2(tvaAmount * ratio)
+  const totalTTC = round2(netSubtotalHT + netTvaAmount)
 
   return {
-    subtotal_ht: round2(subtotalHT),
-    tva_amount: round2(tvaAmount),
-    total_ttc: round2(totalTTC),
+    subtotal_ht: netSubtotalHT,
+    tva_amount: netTvaAmount,
+    total_ttc: totalTTC,
+    discount_type: discount?.type || 'none',
+    discount_value: discount?.value ? Number(discount.value) : 0,
+    discount_amount: round2(discountAmount),
   }
 }
 

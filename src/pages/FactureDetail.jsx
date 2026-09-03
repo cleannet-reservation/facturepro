@@ -66,6 +66,9 @@ export default function FactureDetail() {
       subtotal_ht: invoice.subtotal_ht,
       tva_amount: invoice.tva_amount,
       total_ttc: invoice.total_ttc,
+      discount_type: invoice.discount_type,
+      discount_value: invoice.discount_value,
+      discount_amount: invoice.discount_amount,
       deposit_requested: invoice.invoice_type === 'standalone' ? invoice.deposit_requested : 0,
       deducted_invoice: deductedInvoice,
       tax_credit_eligible: invoice.tax_credit_eligible,
@@ -114,6 +117,9 @@ export default function FactureDetail() {
           subtotal_ht: invoice.subtotal_ht,
           tva_amount: invoice.tva_amount,
           total_ttc: invoice.total_ttc,
+          discount_type: invoice.discount_type,
+          discount_value: invoice.discount_value,
+          discount_amount: invoice.discount_amount,
         })
         .select()
         .single()
@@ -312,6 +318,12 @@ export default function FactureDetail() {
           </tbody>
         </table>
         <div className="totals-box">
+          {invoice.discount_amount > 0 && (
+            <div>
+              <span>Réduction {invoice.discount_type === 'percent' ? `(${invoice.discount_value}%)` : ''}</span>
+              <span>- {formatEUR(invoice.discount_amount)}</span>
+            </div>
+          )}
           <div className="total-ttc"><span>Total TTC</span><span>{formatEUR(invoice.total_ttc)}</span></div>
           {invoice.deposit_paid > 0 && (
             <div><span>Reste à payer</span><span>{formatEUR(remaining)}</span></div>

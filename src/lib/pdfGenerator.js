@@ -147,6 +147,18 @@ export async function generateDocumentPDF(doc_) {
   const totalsX = pageWidth - margin - 60
   doc.setFontSize(9)
   doc.setTextColor(...grey)
+
+  if (doc_.discount_amount > 0) {
+    const grossHT = doc_.subtotal_ht + doc_.discount_amount
+    doc.text('Sous-total', totalsX, finalY)
+    doc.text(formatEUR(grossHT), pageWidth - margin, finalY, { align: 'right' })
+    finalY += 5
+    const discountLabel = doc_.discount_type === 'percent' ? `Réduction (${doc_.discount_value}%)` : 'Réduction'
+    doc.text(discountLabel, totalsX, finalY)
+    doc.text(`- ${formatEUR(doc_.discount_amount)}`, pageWidth - margin, finalY, { align: 'right' })
+    finalY += 5
+  }
+
   if (hasTva) {
     doc.text('Total HT', totalsX, finalY)
     doc.text(formatEUR(doc_.subtotal_ht), pageWidth - margin, finalY, { align: 'right' })
